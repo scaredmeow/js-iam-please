@@ -1,0 +1,48 @@
+{
+  "roles": {
+    "Intern": {
+      "permissions": [
+        { "actions": ["s3:ListBucket", "s3:GetObject"], "resourceType": "s3", "environments": ["dev"], "maxClassification": "internal" },
+        { "actions": ["ec2:DescribeInstances"], "resourceType": "ec2", "environments": ["dev"], "maxClassification": "internal" },
+        { "actions": ["rds:DescribeDBInstances"], "resourceType": "rds", "environments": ["dev"], "maxClassification": "internal" }
+      ]
+    },
+    "Developer": {
+      "permissions": [
+        { "actions": ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:DeleteObject"], "resourceType": "s3", "environments": ["dev", "staging"], "maxClassification": "confidential", "teamScoped": true },
+        { "actions": ["s3:GetObject"], "resourceType": "s3", "environments": ["prod"], "maxClassification": "internal" },
+        { "actions": ["ec2:DescribeInstances", "ec2:StartInstances", "ec2:StopInstances"], "resourceType": "ec2", "environments": ["dev", "staging"], "maxClassification": "confidential", "teamScoped": true },
+        { "actions": ["rds:DescribeDBInstances", "rds:CreateDBSnapshot"], "resourceType": "rds", "environments": ["dev", "staging"], "maxClassification": "confidential", "teamScoped": true },
+        { "actions": ["lambda:InvokeFunction", "lambda:GetFunction"], "resourceType": "lambda", "environments": ["dev", "staging"], "maxClassification": "confidential", "teamScoped": true }
+      ]
+    },
+    "Security Engineer": {
+      "permissions": [
+        { "actions": ["s3:ListBucket", "s3:GetObject"], "resourceType": "s3", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted" },
+        { "actions": ["cloudtrail:LookupEvents", "cloudtrail:GetTrailStatus"], "resourceType": "cloudtrail", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted" },
+        { "actions": ["iam:GetPolicy", "iam:ListPolicies", "iam:GetRole"], "resourceType": "iam", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted" },
+        { "actions": ["guardduty:GetFindings", "guardduty:ListFindings"], "resourceType": "guardduty", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted" }
+      ]
+    },
+    "Data Analyst": {
+      "permissions": [
+        { "actions": ["s3:GetObject"], "resourceType": "s3", "environments": ["dev", "staging", "prod"], "maxClassification": "confidential" },
+        { "actions": ["athena:StartQueryExecution", "athena:GetQueryResults"], "resourceType": "athena", "environments": ["dev", "staging", "prod"], "maxClassification": "confidential" },
+        { "actions": ["rds:DescribeDBInstances"], "resourceType": "rds", "environments": ["dev", "staging"], "maxClassification": "confidential" }
+      ]
+    },
+    "Auditor": {
+      "permissions": [
+        { "actions": ["s3:ListBucket", "s3:GetObject"], "resourceType": "s3", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted" },
+        { "actions": ["cloudtrail:LookupEvents", "cloudtrail:GetTrailStatus"], "resourceType": "cloudtrail", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted" },
+        { "actions": ["iam:GetPolicy", "iam:ListPolicies", "iam:GetRole", "iam:ListRoles"], "resourceType": "iam", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted" },
+        { "actions": ["config:GetComplianceDetailsByConfigRule"], "resourceType": "config", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted" }
+      ]
+    },
+    "Admin": {
+      "permissions": [
+        { "actions": ["*"], "resourceType": "*", "environments": ["dev", "staging", "prod"], "maxClassification": "restricted", "requiresBreakGlass": true }
+      ]
+    }
+  }
+}

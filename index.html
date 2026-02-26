@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IAM Please</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --desk-bg: #5c4033;
+      --desk-dark: #3e2723;
+      --desk-mid: #4e342e;
+      --desk-light: #5d4037;
+      --paper-bg: #f5f0e1;
+      --paper-aged: #ede4cc;
+      --paper-shadow: rgba(0, 0, 0, 0.25);
+      --stamp-approve: #2e7d32;
+      --stamp-approve-dark: #1b5e20;
+      --stamp-approve-light: #4caf50;
+      --stamp-deny: #c62828;
+      --stamp-deny-dark: #b71c1c;
+      --stamp-deny-light: #ef5350;
+      --text-primary: #1a1a1a;
+      --text-secondary: #555;
+      --text-muted: #888;
+      --focus-ring: #1565c0;
+      --border-color: #bbb;
+      --border-dark: #999;
+      --accent-blue: #1565c0;
+      --accent-amber: #f57f17;
+      --warning-bg: #fff3e0;
+      --warning-border: #ff9800;
+      --success-bg: #e8f5e9;
+      --error-bg: #ffebee;
+    }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 120px,
+          rgba(0,0,0,0.03) 120px,
+          rgba(0,0,0,0.03) 121px
+        ),
+        linear-gradient(180deg, #6d4c41 0%, #5c4033 30%, #4e342e 100%);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* --- Header --- */
+    header {
+      background: linear-gradient(to bottom, var(--desk-dark), var(--desk-mid));
+      color: var(--paper-bg);
+      text-align: center;
+      padding: 0.5rem 1rem;
+      border-bottom: 3px solid #2e1f1a;
+      font-size: 1.1rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .header-title {
+      flex: 1;
+      text-align: center;
+    }
+
+    .header-score {
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      opacity: 0.9;
+    }
+
+    .header-day {
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      opacity: 0.9;
+    }
+
+    .new-game-btn {
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.45rem 0.9rem;
+      background: var(--paper-bg);
+      color: var(--stamp-deny);
+      border: 2px solid var(--stamp-deny);
+      border-radius: 3px;
+      cursor: pointer;
+      margin-left: auto;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .new-game-btn:hover {
+      background: var(--stamp-deny);
+      color: #fff;
+    }
+
+    .new-game-btn:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* --- Game Area (two-panel layout) --- */
+    #game-area {
+      flex: 1;
+      display: flex;
+      gap: 1rem;
+      padding: 1rem;
+      min-height: 0;
+      position: relative;
+    }
+
+    .panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.25rem;
+      position: relative;
+    }
+
+    .paper {
+      background:
+        linear-gradient(
+          180deg,
+          var(--paper-bg) 0%,
+          var(--paper-aged) 100%
+        );
+      border: 1px solid var(--border-color);
+      border-radius: 2px;
+      box-shadow:
+        3px 3px 8px var(--paper-shadow),
+        inset 0 0 40px rgba(0, 0, 0, 0.03),
+        0 0 0 1px rgba(0,0,0,0.05);
+    }
+
+    /* Subtle paper texture lines */
+    .panel.paper::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: repeating-linear-gradient(
+        transparent,
+        transparent 27px,
+        rgba(0, 0, 0, 0.04) 27px,
+        rgba(0, 0, 0, 0.04) 28px
+      );
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    .panel-heading {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-bottom: 2px solid var(--text-primary);
+      padding-bottom: 0.4rem;
+      margin-bottom: 0.75rem;
+      position: relative;
+    }
+
+    .placeholder {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 0.85rem;
+    }
+
+    /* --- Request Panel Fields --- */
+    .field-group {
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px dashed rgba(0,0,0,0.12);
+    }
+
+    .field-group:last-of-type {
+      border-bottom: none;
+    }
+
+    .field {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.25rem 0;
+      line-height: 1.4;
+    }
+
+    .field-label {
+      font-weight: bold;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      min-width: 110px;
+      flex-shrink: 0;
+    }
+
+    .field-value {
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    /* Stamp overlay on request document */
+    .stamp-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-15deg);
+      font-size: 3rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      padding: 0.3em 0.6em;
+      border: 6px solid;
+      border-radius: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .stamp-overlay.approved {
+      color: var(--stamp-approve);
+      border-color: var(--stamp-approve);
+      opacity: 0.6;
+    }
+
+    .stamp-overlay.denied {
+      color: var(--stamp-deny);
+      border-color: var(--stamp-deny);
+      opacity: 0.6;
+    }
+
+    /* --- Rulebook Tabs --- */
+    .rulebook-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 0.75rem;
+      border-bottom: 2px solid var(--border-dark);
+    }
+
+    .tab-btn {
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.4rem 0.8rem;
+      background: transparent;
+      border: 2px solid transparent;
+      border-bottom: none;
+      border-radius: 3px 3px 0 0;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .tab-btn:hover {
+      background: rgba(0,0,0,0.05);
+    }
+
+    .tab-btn.active {
+      background: var(--paper-bg);
+      color: var(--text-primary);
+      border-color: var(--border-dark);
+      position: relative;
+    }
+
+    /* Cover the bottom border for active tab */
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--paper-bg);
+    }
+
+    .tab-btn:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .tab-panel {
+      display: none;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* --- Decision Bar --- */
+    #decision-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 0.75rem 1rem;
+      background: linear-gradient(to top, var(--desk-dark), var(--desk-light));
+      border-top: 3px solid #2e1f1a;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
+      flex-wrap: wrap;
+    }
+
+    .decision-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .stamp-btn {
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.5rem;
+      border: 3px solid;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .stamp-btn:active {
+      transform: scale(0.95);
+    }
+
+    .stamp-btn:focus-visible,
+    .control-btn:focus-visible,
+    .tab-btn:focus-visible,
+    .rationale-btn:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .stamp-btn.approve {
+      background: var(--stamp-approve);
+      border-color: var(--stamp-approve-dark);
+      color: #fff;
+      box-shadow: 2px 3px 6px rgba(0,0,0,0.35);
+    }
+
+    .stamp-btn.approve:hover {
+      background: var(--stamp-approve-light);
+    }
+
+    .stamp-btn.approve:disabled {
+      background: #6a6a6a;
+      border-color: #555;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .stamp-btn.deny {
+      background: var(--stamp-deny);
+      border-color: var(--stamp-deny-dark);
+      color: #fff;
+      box-shadow: 2px 3px 6px rgba(0,0,0,0.35);
+    }
+
+    .stamp-btn.deny:hover {
+      background: var(--stamp-deny-light);
+    }
+
+    .stamp-btn.deny:disabled {
+      background: #6a6a6a;
+      border-color: #555;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .stamp-icon {
+      font-size: 1.2em;
+      line-height: 1;
+    }
+
+    .control-btn {
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 0.5rem 1rem;
+      background: var(--paper-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .control-btn:hover {
+      background: #e8e0cc;
+    }
+
+    .control-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .ticket-progress {
+      font-size: 0.8rem;
+      color: var(--paper-bg);
+      opacity: 0.8;
+      letter-spacing: 0.05em;
+    }
+
+    /* --- Feedback Panel --- */
+    .feedback-panel {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 600px;
+      background: var(--paper-bg);
+      border: 2px solid var(--border-dark);
+      border-radius: 4px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      padding: 1rem 1.25rem;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .feedback-panel[hidden] {
+      display: none;
+    }
+
+    .feedback-content {
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .feedback-correct {
+      background: var(--success-bg);
+      border-left: 4px solid var(--stamp-approve);
+      padding: 0.5rem 0.75rem;
+      border-radius: 2px;
+    }
+
+    .feedback-incorrect {
+      background: var(--error-bg);
+      border-left: 4px solid var(--stamp-deny);
+      padding: 0.5rem 0.75rem;
+      border-radius: 2px;
+    }
+
+    .feedback-panel .control-btn {
+      align-self: flex-end;
+    }
+
+    .feedback-hint {
+      font-size: 0.85rem;
+      padding: 0.4rem 0.75rem;
+      background: var(--warning-bg);
+      border-left: 4px solid var(--warning-border);
+      border-radius: 2px;
+    }
+
+    .feedback-explanation {
+      font-size: 0.85rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(0,0,0,0.03);
+      border-left: 4px solid var(--accent-blue);
+      border-radius: 2px;
+      line-height: 1.5;
+    }
+
+    .summary-teaching-point {
+      font-size: 0.8rem;
+      font-style: italic;
+      color: var(--text-secondary);
+      padding: 0.2rem 0.5rem 0.4rem 1rem;
+    }
+
+    .summary-patterns {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--warning-bg);
+      border-radius: 3px;
+    }
+
+    .summary-patterns ul {
+      margin: 0.25rem 0 0 1.25rem;
+      padding: 0;
+    }
+
+    .summary-patterns li {
+      margin-bottom: 0.2rem;
+    }
+
+    /* --- Modal Overlay --- */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-overlay[hidden] {
+      display: none;
+    }
+
+    .modal-content {
+      width: 90%;
+      max-width: 480px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 1.5rem;
+      border-radius: 4px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+
+    .modal-title {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-bottom: 2px solid var(--text-primary);
+      padding-bottom: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .modal-close {
+      margin-top: 1rem;
+      width: 100%;
+    }
+
+    /* --- Rationale Options --- */
+    .rationale-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .rationale-btn {
+      font-family: inherit;
+      font-size: 0.85rem;
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      background: var(--paper-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .rationale-btn:hover {
+      background: #e8e0cc;
+      border-color: var(--border-dark);
+    }
+
+    .rationale-btn:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* --- Day Summary --- */
+    .summary-content {
+      max-width: 560px;
+    }
+
+    .summary-stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      border-bottom: 1px dashed rgba(0,0,0,0.1);
+      font-size: 0.9rem;
+    }
+
+    .summary-stat-label {
+      color: var(--text-secondary);
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+    }
+
+    .summary-stat-value {
+      font-weight: bold;
+    }
+
+    .summary-tickets {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .summary-ticket-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.35rem 0.5rem;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .summary-ticket-row.correct {
+      border-left: 3px solid var(--stamp-approve);
+    }
+
+    .summary-ticket-row.incorrect {
+      border-left: 3px solid var(--stamp-deny);
+    }
+
+    .summary-ticket-result {
+      font-weight: bold;
+      font-size: 0.8rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 2px;
+    }
+
+    .summary-ticket-result.correct {
+      background: var(--success-bg);
+      color: var(--stamp-approve-dark);
+    }
+
+    .summary-ticket-result.incorrect {
+      background: var(--error-bg);
+      color: var(--stamp-deny-dark);
+    }
+
+    /* --- Warning Banner --- */
+    .warning-banner {
+      background: var(--warning-bg);
+      border: 2px solid var(--warning-border);
+      border-radius: 3px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .warning-banner[hidden] {
+      display: none;
+    }
+
+    .warning-icon {
+      font-size: 1.1rem;
+    }
+
+    /* --- Scrollbar Styling --- */
+    .panel::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .panel::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.05);
+    }
+
+    .panel::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+    }
+
+    .panel::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,0,0,0.3);
+    }
+
+    /* --- Rulebook Content --- */
+    .rulebook-role {
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px dashed rgba(0,0,0,0.12);
+    }
+
+    .rulebook-role:last-child {
+      border-bottom: none;
+    }
+
+    .rulebook-role-name {
+      font-weight: bold;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+      color: var(--accent-blue);
+    }
+
+    .rulebook-perm-list,
+    .rulebook-rule-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+
+    .rulebook-perm-list li,
+    .rulebook-rule-list li {
+      padding: 0.2rem 0 0.2rem 0.75rem;
+      position: relative;
+    }
+
+    .rulebook-perm-list li::before,
+    .rulebook-rule-list li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--text-muted);
+    }
+
+    .perm-actions {
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .perm-resource {
+      color: var(--accent-blue);
+    }
+
+    .rule-dimension,
+    .rule-type {
+      font-weight: bold;
+      font-size: 0.75rem;
+      color: var(--accent-amber);
+    }
+
+    /* --- Utility --- */
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+</style>
+</head>
+<body>
+  <header>
+    <span class="header-day" id="header-day">Day 1</span>
+    <span class="header-title">IAM Please — Access Review Bureau</span>
+    <span class="header-score" id="header-score">Score: 0</span>
+  </header>
+
+  <main id="game-area">
+    <!-- Left panel: request document -->
+    <section id="request-panel" class="panel paper" aria-label="Access Request Document">
+      <h2 class="panel-heading">Access Request</h2>
+      <div id="request-content">
+        <div class="field-group">
+          <div class="field">
+            <span class="field-label">Requester:</span>
+            <span class="field-value" id="req-requester">—</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Role:</span>
+            <span class="field-value" id="req-role">—</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Team:</span>
+            <span class="field-value" id="req-team">—</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Environment:</span>
+            <span class="field-value" id="req-environment">—</span>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field">
+            <span class="field-label">Actions:</span>
+            <span class="field-value" id="req-actions">—</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Resources:</span>
+            <span class="field-value" id="req-resources">—</span>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field">
+            <span class="field-label">Justification:</span>
+            <span class="field-value" id="req-justification">—</span>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field">
+            <span class="field-label">Ticket ID:</span>
+            <span class="field-value" id="req-ticket-id">—</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Time Window:</span>
+            <span class="field-value" id="req-time-window">—</span>
+          </div>
+        </div>
+
+        <div class="stamp-overlay" id="stamp-overlay" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- Right panel: rulebook -->
+    <section id="rulebook-panel" class="panel paper" aria-label="Rulebook">
+      <h2 class="panel-heading">Rulebook</h2>
+      <div id="rulebook-content">
+        <div class="rulebook-tabs" role="tablist" aria-label="Rulebook sections">
+          <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-roles" id="tab-btn-roles" type="button">Roles</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-abac" id="tab-btn-abac" type="button">ABAC</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-guardrails" id="tab-btn-guardrails" type="button">Guardrails</button>
+        </div>
+
+        <div class="tab-panel active" role="tabpanel" id="tab-roles" aria-labelledby="tab-btn-roles">
+          <p class="placeholder">Role matrix will appear here...</p>
+        </div>
+        <div class="tab-panel" role="tabpanel" id="tab-abac" aria-labelledby="tab-btn-abac" hidden>
+          <p class="placeholder">ABAC rules will appear here...</p>
+        </div>
+        <div class="tab-panel" role="tabpanel" id="tab-guardrails" aria-labelledby="tab-btn-guardrails" hidden>
+          <p class="placeholder">Guardrails will appear here...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Feedback area (overlays on top of game area when active) -->
+  <div id="feedback-panel" class="feedback-panel" aria-live="polite" hidden>
+    <div class="feedback-content" id="feedback-content">
+      <p class="placeholder">Feedback will appear here...</p>
+    </div>
+    <button id="btn-explain" class="control-btn" type="button">Explain This Decision</button>
+    <button id="btn-dismiss-feedback" class="control-btn" type="button">Dismiss</button>
+  </div>
+
+  <!-- Bottom bar: decision controls -->
+  <footer id="decision-bar" aria-label="Decision Controls">
+    <div class="decision-group">
+      <button id="btn-approve" class="stamp-btn approve" type="button" aria-label="Approve request">
+        <span class="stamp-icon" aria-hidden="true">✓</span> APPROVE
+      </button>
+      <button id="btn-deny" class="stamp-btn deny" type="button" aria-label="Deny request">
+        <span class="stamp-icon" aria-hidden="true">✗</span> DENY
+      </button>
+    </div>
+    <div class="decision-group">
+      <button id="btn-rationale" class="control-btn" type="button" disabled>Select Rationale…</button>
+      <button id="btn-next" class="control-btn" type="button" disabled>Next Ticket ▶</button>
+    </div>
+    <div class="ticket-progress" id="ticket-progress" aria-label="Ticket progress">
+      <span id="progress-text">Ticket 0 / 0</span>
+    </div>
+    <button id="btn-new-game" class="new-game-btn" type="button" aria-label="Start a new game">⟳ New Game</button>
+  </footer>
+
+  <!-- Rationale picker modal -->
+  <div id="rationale-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rationale-modal-title" hidden>
+    <div class="modal-content paper">
+      <h3 id="rationale-modal-title" class="modal-title">Select Rationale Code</h3>
+      <div id="rationale-options" class="rationale-options">
+        <!-- Rationale options will be populated dynamically -->
+      </div>
+      <button id="btn-close-modal" class="control-btn modal-close" type="button" aria-label="Close rationale picker">Cancel (Esc)</button>
+    </div>
+  </div>
+
+  <!-- Day summary modal -->
+  <div id="summary-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="summary-modal-title" hidden>
+    <div class="modal-content paper summary-content">
+      <h3 id="summary-modal-title" class="modal-title">End of Day Summary</h3>
+      <div id="summary-body">
+        <!-- Summary content populated dynamically -->
+      </div>
+      <button id="btn-next-day" class="control-btn" type="button">Next Day ▶</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

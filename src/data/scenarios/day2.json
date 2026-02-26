@@ -1,0 +1,76 @@
+[
+  {
+    "id": "debug-logs",
+    "day": 2,
+    "title": "Debug Logs",
+    "difficulty": 3,
+    "request": {
+      "requester": {
+        "name": "Alex",
+        "role": "Developer",
+        "team": "payments"
+      },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-app-logs/team=payments/*"],
+      "justification": "Need to investigate payment processing error in production logs",
+      "ticketId": "INC-2024-0451",
+      "timeWindowMinutes": 120,
+      "constraints": {
+        "dataClassification": "internal"
+      }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits read-only access to prod S3 with internal classification"
+    },
+    "teachingPoint": "Prod read access is not the same as prod write — scoped log access for debugging is appropriate"
+  },
+  {
+    "id": "broad-compute",
+    "day": 2,
+    "title": "Broad Compute",
+    "difficulty": 3,
+    "request": {
+      "requester": {
+        "name": "Alex",
+        "role": "Developer",
+        "team": "core"
+      },
+      "environment": "prod",
+      "actions": ["ec2:RunInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/*"],
+      "justification": "Need to spin up instances in production for performance testing"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "No matching allow in Role Matrix for role \"Developer\", action \"ec2:RunInstances\", resource type \"ec2\", environment \"prod\""
+    },
+    "teachingPoint": "Provisioning in production is not in the Developer role — separation of duties and environment guardrails prevent this"
+  },
+  {
+    "id": "snapshot-panic",
+    "day": 2,
+    "title": "Snapshot Panic",
+    "difficulty": 3,
+    "request": {
+      "requester": {
+        "name": "Jordan",
+        "role": "Data Analyst",
+        "team": "analytics"
+      },
+      "environment": "prod",
+      "actions": ["rds:CreateDBSnapshot"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/prod-main-db"],
+      "justification": "Want to create a snapshot of the production database to analyze data offline"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "No matching allow in Role Matrix for role \"Data Analyst\", action \"rds:CreateDBSnapshot\", resource type \"rds\", environment \"prod\""
+    },
+    "teachingPoint": "Creating database snapshots is a write-like operation — Data Analysts have read-only access, not operational control"
+  }
+]

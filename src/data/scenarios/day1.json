@@ -1,0 +1,77 @@
+[
+  {
+    "id": "dev-onboarding",
+    "day": 1,
+    "title": "Dev Onboarding",
+    "difficulty": 1,
+    "request": {
+      "requester": {
+        "name": "Mina",
+        "role": "Intern",
+        "team": "core"
+      },
+      "environment": "dev",
+      "actions": ["s3:ListBucket", "s3:GetObject"],
+      "resources": ["arn:aws:s3:::training-data-dev/*"],
+      "justification": "Need access to training datasets for onboarding exercises",
+      "constraints": {
+        "dataClassification": "internal"
+      }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-intern",
+      "explanation": "Intern role permits read access to non-prod dev S3 buckets with internal classification"
+    },
+    "teachingPoint": "Least privilege can still be enabling — scoped dev access is appropriate for learning"
+  },
+  {
+    "id": "curious-intern",
+    "day": 1,
+    "title": "Curious Intern",
+    "difficulty": 2,
+    "request": {
+      "requester": {
+        "name": "Mina",
+        "role": "Intern",
+        "team": "core"
+      },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-customer-pii/*"],
+      "justification": "Want to see what real customer data looks like for learning",
+      "constraints": {
+        "dataClassification": "restricted"
+      }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Intern role has no permissions for prod environment resources"
+    },
+    "teachingPoint": "Data classification overrides curiosity — interns should never access production restricted data"
+  },
+  {
+    "id": "evidence-request",
+    "day": 1,
+    "title": "Evidence Request",
+    "difficulty": 2,
+    "request": {
+      "requester": {
+        "name": "Sam",
+        "role": "Auditor",
+        "team": "compliance"
+      },
+      "environment": "prod",
+      "actions": ["cloudtrail:LookupEvents", "cloudtrail:GetTrailStatus"],
+      "resources": ["arn:aws:cloudtrail:us-east-1:*:trail/main-audit-trail"],
+      "justification": "Quarterly compliance audit requires review of CloudTrail event history"
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role has explicit allow for CloudTrail read actions in all environments"
+    },
+    "teachingPoint": "Audit access is read-only but legitimate — auditors need visibility into logs for compliance"
+  }
+]

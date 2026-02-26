@@ -1,0 +1,31 @@
+{
+  "guardrails": [
+    {
+      "id": "scp-region-restrict",
+      "type": "scp",
+      "description": "Org SCP denies resource creation outside us-east-1",
+      "denyCondition": {
+        "actionPrefix": "Create",
+        "deniedRegions": ["us-west-2", "eu-west-1", "ap-southeast-1"]
+      }
+    },
+    {
+      "id": "pb-no-iam-write",
+      "type": "permission-boundary",
+      "description": "Permission boundary prevents IAM write actions for non-Admin roles",
+      "denyCondition": {
+        "actionPrefixes": ["iam:Create", "iam:Delete", "iam:Put", "iam:Attach", "iam:Detach"],
+        "exemptRoles": ["Admin"]
+      }
+    },
+    {
+      "id": "scp-deny-s3-public",
+      "type": "scp",
+      "description": "SCP denies making S3 buckets public",
+      "denyCondition": {
+        "actions": ["s3:PutBucketPolicy", "s3:PutBucketAcl"],
+        "exemptRoles": []
+      }
+    }
+  ]
+}

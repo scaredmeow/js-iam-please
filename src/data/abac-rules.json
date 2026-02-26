@@ -1,0 +1,41 @@
+{
+  "active": true,
+  "rules": [
+    {
+      "id": "intern-no-prod",
+      "dimension": "environment",
+      "description": "Interns cannot access production environments",
+      "condition": {
+        "requesterRole": "Intern",
+        "deniedEnvironments": ["prod"]
+      }
+    },
+    {
+      "id": "dev-team-scoped",
+      "dimension": "team",
+      "description": "Developers can only act on resources belonging to their own team",
+      "condition": {
+        "requesterRole": "Developer",
+        "requireTeamMatch": true
+      }
+    },
+    {
+      "id": "restricted-requires-ticket",
+      "dimension": "dataClassification",
+      "description": "Restricted data access requires a valid ticket ID",
+      "condition": {
+        "dataClassification": "restricted",
+        "requiresTicketId": true
+      }
+    },
+    {
+      "id": "confidential-no-intern",
+      "dimension": "dataClassification",
+      "description": "Interns cannot access confidential or restricted data",
+      "condition": {
+        "requesterRole": "Intern",
+        "deniedClassifications": ["confidential", "restricted"]
+      }
+    }
+  ]
+}

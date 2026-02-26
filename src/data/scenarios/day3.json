@@ -1,0 +1,97 @@
+[
+  {
+    "id": "staging-deploy",
+    "day": 3,
+    "title": "Staging Deploy",
+    "difficulty": 2,
+    "request": {
+      "requester": {
+        "name": "Alex",
+        "role": "Developer",
+        "team": "core"
+      },
+      "environment": "staging",
+      "actions": ["ec2:RunInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/*"],
+      "justification": "Deploying new service version to staging for integration testing",
+      "constraints": {
+        "dataClassification": "confidential"
+      }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "No matching allow in Role Matrix for role \"Developer\", action \"ec2:RunInstances\", resource type \"ec2\", environment \"staging\""
+    },
+    "teachingPoint": "Not all EC2 actions are the same — Developer role allows Describe/Start/Stop but not RunInstances (provisioning)"
+  },
+  {
+    "id": "passrole-trap",
+    "day": 3,
+    "title": "PassRole Trap",
+    "difficulty": 4,
+    "request": {
+      "requester": {
+        "name": "Alex",
+        "role": "Developer",
+        "team": "core"
+      },
+      "environment": "dev",
+      "actions": ["iam:PassRole"],
+      "resources": ["*"],
+      "justification": "Need to pass roles to Lambda functions for faster deployment workflow"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "No matching allow in Role Matrix for role \"Developer\", action \"iam:PassRole\", resource type \"iam\", environment \"dev\""
+    },
+    "teachingPoint": "iam:PassRole is a high-risk hinge permission — wildcard resource PassRole can enable privilege escalation"
+  },
+  {
+    "id": "intern-ec2-dev",
+    "day": 3,
+    "title": "Intern Describes Instances",
+    "difficulty": 1,
+    "request": {
+      "requester": {
+        "name": "Mina",
+        "role": "Intern",
+        "team": "core"
+      },
+      "environment": "dev",
+      "actions": ["ec2:DescribeInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/*"],
+      "justification": "Learning about the infrastructure setup for onboarding documentation"
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-intern",
+      "explanation": "Intern role has explicit allow for ec2:DescribeInstances in dev environment"
+    },
+    "teachingPoint": "Read-only describe actions in dev are safe and appropriate for learning — this is least privilege in action"
+  },
+  {
+    "id": "dev-staging-rds",
+    "day": 3,
+    "title": "Developer RDS Snapshot",
+    "difficulty": 2,
+    "request": {
+      "requester": {
+        "name": "Alex",
+        "role": "Developer",
+        "team": "core"
+      },
+      "environment": "staging",
+      "actions": ["rds:CreateDBSnapshot"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/staging-app-db"],
+      "justification": "Creating a snapshot before deploying database migration to staging"
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits rds:CreateDBSnapshot in staging environment"
+    },
+    "teachingPoint": "Developers can perform write operations in non-prod environments — staging snapshots before migrations are good practice"
+  }
+]
