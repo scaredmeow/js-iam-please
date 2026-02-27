@@ -5,18 +5,12 @@
     "title": "Dev Onboarding",
     "difficulty": 1,
     "request": {
-      "requester": {
-        "name": "Mina",
-        "role": "Intern",
-        "team": "core"
-      },
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
       "environment": "dev",
       "actions": ["s3:ListBucket", "s3:GetObject"],
       "resources": ["arn:aws:s3:::training-data-dev/*"],
       "justification": "Need access to training datasets for onboarding exercises",
-      "constraints": {
-        "dataClassification": "internal"
-      }
+      "constraints": { "dataClassification": "internal" }
     },
     "expected": {
       "decision": "APPROVE",
@@ -31,18 +25,12 @@
     "title": "Curious Intern",
     "difficulty": 2,
     "request": {
-      "requester": {
-        "name": "Mina",
-        "role": "Intern",
-        "team": "core"
-      },
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
       "environment": "prod",
       "actions": ["s3:GetObject"],
       "resources": ["arn:aws:s3:::prod-customer-pii/*"],
       "justification": "Want to see what real customer data looks like for learning",
-      "constraints": {
-        "dataClassification": "restricted"
-      }
+      "constraints": { "dataClassification": "restricted" }
     },
     "expected": {
       "decision": "DENY",
@@ -57,11 +45,7 @@
     "title": "Evidence Request",
     "difficulty": 2,
     "request": {
-      "requester": {
-        "name": "Sam",
-        "role": "Auditor",
-        "team": "compliance"
-      },
+      "requester": { "name": "Sam", "role": "Auditor", "team": "compliance" },
       "environment": "prod",
       "actions": ["cloudtrail:LookupEvents", "cloudtrail:GetTrailStatus"],
       "resources": ["arn:aws:cloudtrail:us-east-1:*:trail/main-audit-trail"],
@@ -73,5 +57,142 @@
       "explanation": "Auditor role has explicit allow for CloudTrail read actions in all environments"
     },
     "teachingPoint": "Audit access is read-only but legitimate — auditors need visibility into logs for compliance"
+  },
+  {
+    "id": "intern-rds-dev",
+    "day": 1,
+    "title": "Intern Checks Databases",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Kai", "role": "Intern", "team": "data" },
+      "environment": "dev",
+      "actions": ["rds:DescribeDBInstances"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/*"],
+      "justification": "Learning about database infrastructure for onboarding documentation",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-intern",
+      "explanation": "Intern role permits rds:DescribeDBInstances in dev with internal classification"
+    },
+    "teachingPoint": "Describe actions are read-only metadata lookups — safe for interns in dev environments"
+  },
+  {
+    "id": "dev-s3-dev-read",
+    "day": 1,
+    "title": "Developer Reads Dev Bucket",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::dev-app-configs/team=core/*"],
+      "justification": "Pulling config files for local development setup",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits S3 read in dev with internal classification"
+    },
+    "teachingPoint": "Developers reading their own team's dev configs is a textbook least-privilege allow"
+  },
+  {
+    "id": "intern-s3-write-dev",
+    "day": 1,
+    "title": "Intern Wants to Upload",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:PutObject"],
+      "resources": ["arn:aws:s3:::dev-training-uploads/*"],
+      "justification": "Want to upload my completed onboarding exercises",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Intern role only has s3:ListBucket and s3:GetObject — s3:PutObject is not permitted"
+    },
+    "teachingPoint": "Read access does not imply write access — each action must be explicitly granted in the role"
+  },
+  {
+    "id": "auditor-iam-list",
+    "day": 1,
+    "title": "Auditor Lists IAM Roles",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["iam:ListRoles"],
+      "resources": ["arn:aws:iam::*:role/*"],
+      "justification": "Cataloging all IAM roles for annual access review"
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role has explicit allow for iam:ListRoles in all environments"
+    },
+    "teachingPoint": "Auditors need broad read visibility — listing roles is essential for access reviews"
+  },
+  {
+    "id": "dev-ec2-prod-start",
+    "day": 1,
+    "title": "Developer Starts Prod Instance",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "prod",
+      "actions": ["ec2:StartInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/i-prod-web-01"],
+      "justification": "Production web server is down, need to restart it immediately"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Developer role only permits ec2:StartInstances in dev and staging, not prod"
+    },
+    "teachingPoint": "Urgency doesn't override policy — production operations require elevated roles even in emergencies"
+  },
+  {
+    "id": "security-s3-dev-read",
+    "day": 1,
+    "title": "Security Reviews Dev Logs",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "dev",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::dev-security-logs/*"],
+      "justification": "Reviewing dev environment security logs for vulnerability assessment",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer role permits S3 read in all environments including dev"
+    },
+    "teachingPoint": "Security Engineers have broad read access across environments — they need visibility everywhere"
+  },
+  {
+    "id": "analyst-rds-prod",
+    "day": 1,
+    "title": "Analyst Describes Prod DB",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "prod",
+      "actions": ["rds:DescribeDBInstances"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/prod-analytics-db"],
+      "justification": "Need to check database instance specs for capacity planning report"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Data Analyst role only permits rds:DescribeDBInstances in dev and staging, not prod"
+    },
+    "teachingPoint": "Even read-only metadata actions can be environment-restricted — check the allowed environments carefully"
   }
 ]

@@ -1,0 +1,206 @@
+[
+  {
+    "id": "restricted-no-ticket",
+    "day": 5,
+    "title": "Restricted Without Ticket",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-encryption-keys/*"],
+      "justification": "Need to review encryption key metadata for security audit",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-restricted-no-ticket",
+      "explanation": "ABAC rule restricted-requires-ticket denies access to restricted data without a valid ticket ID"
+    },
+    "teachingPoint": "Restricted data always requires a ticket — even privileged roles must follow the process"
+  },
+  {
+    "id": "restricted-with-ticket",
+    "day": 5,
+    "title": "Restricted With Ticket",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-encryption-keys/*"],
+      "justification": "Security audit of encryption key rotation compliance",
+      "ticketId": "SEC-2025-0892",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer role allows S3 read in prod with restricted classification, and the ticket ID satisfies the ABAC rule"
+    },
+    "teachingPoint": "A valid ticket ID unlocks restricted data access — this is the audit trail that makes sensitive access accountable"
+  },
+  {
+    "id": "intern-confidential-block",
+    "day": 5,
+    "title": "Intern Confidential Data",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::dev-api-configs/*"],
+      "justification": "Need to read API configuration for onboarding project",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-intern-classification",
+      "explanation": "ABAC rule confidential-no-intern denies Interns access to confidential data"
+    },
+    "teachingPoint": "Data classification restrictions can override role permissions — interns are limited to internal data only"
+  },
+  {
+    "id": "auditor-restricted-no-ticket",
+    "day": 5,
+    "title": "Auditor Restricted No Ticket",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-pci-audit-data/*"],
+      "justification": "Reviewing PCI compliance data for annual certification",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-restricted-no-ticket",
+      "explanation": "ABAC rule restricted-requires-ticket blocks restricted data access without a ticket ID, even for Auditors"
+    },
+    "teachingPoint": "Even auditors need tickets for restricted data — the rule applies universally"
+  },
+  {
+    "id": "auditor-restricted-with-ticket",
+    "day": 5,
+    "title": "Auditor Restricted With Ticket",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-pci-audit-data/*"],
+      "justification": "PCI DSS annual compliance audit",
+      "ticketId": "AUD-2025-0200",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role permits S3 read in prod with restricted classification, and ticket ID satisfies ABAC rule"
+    },
+    "teachingPoint": "With a ticket, auditors can access restricted data — the process exists to create accountability"
+  },
+  {
+    "id": "dev-restricted-dev",
+    "day": 5,
+    "title": "Developer Restricted Dev Data",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::dev-secrets-vault/*"],
+      "justification": "Need to read secrets for local integration testing",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Developer role maxClassification for S3 in dev is confidential, not restricted"
+    },
+    "teachingPoint": "Even in dev, restricted data is off-limits for Developers — classification ceilings are per-role"
+  },
+  {
+    "id": "dev-cross-team-rds-staging",
+    "day": 5,
+    "title": "Cross-Team RDS Describe",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "staging",
+      "actions": ["rds:DescribeDBInstances"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/payments-staging-db"],
+      "justification": "Checking payments team DB status for cross-team dependency",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped requires team match; core cannot describe payments team RDS instances"
+    },
+    "teachingPoint": "Team scoping applies to all resource types — even read-only describe actions are team-restricted for Developers"
+  },
+  {
+    "id": "intern-restricted-dev",
+    "day": 5,
+    "title": "Intern Restricted Dev Access",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Kai", "role": "Intern", "team": "data" },
+      "environment": "dev",
+      "actions": ["rds:DescribeDBInstances"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/dev-restricted-db"],
+      "justification": "Exploring database infrastructure for learning",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-intern-classification",
+      "explanation": "ABAC rule confidential-no-intern denies Interns access to restricted data (restricted is higher than confidential)"
+    },
+    "teachingPoint": "Restricted is even more sensitive than confidential — interns are blocked from both by ABAC"
+  },
+  {
+    "id": "security-guardduty-with-ticket",
+    "day": 5,
+    "title": "Security GuardDuty With Ticket",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["guardduty:GetFindings"],
+      "resources": ["arn:aws:guardduty:us-east-1:*:detector/prod-detector"],
+      "justification": "Investigating flagged suspicious activity",
+      "ticketId": "SEC-2025-0910",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer role permits GuardDuty read in prod with restricted classification, ticket satisfies ABAC rule"
+    },
+    "teachingPoint": "With a ticket, Security Engineers can access restricted GuardDuty findings — the process enables the investigation"
+  },
+  {
+    "id": "analyst-s3-restricted-prod",
+    "day": 5,
+    "title": "Analyst Reads Restricted Prod",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-customer-pii-exports/*"],
+      "justification": "Need PII data for customer segmentation analysis",
+      "ticketId": "DA-2025-0150",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Data Analyst role maxClassification for S3 is confidential, not restricted — even with a ticket"
+    },
+    "teachingPoint": "ABAC ticket rules only help if the role allows the classification level — Data Analysts cap at confidential"
+  }
+]

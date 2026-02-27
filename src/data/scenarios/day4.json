@@ -1,0 +1,202 @@
+[
+  {
+    "id": "intern-prod-abac-block",
+    "day": 4,
+    "title": "Intern Prod Lockout",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-reports/*"],
+      "justification": "Manager asked me to pull a report from production",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-intern-prod",
+      "explanation": "ABAC rule intern-no-prod denies Interns access to production environments regardless of role permissions"
+    },
+    "teachingPoint": "ABAC rules add an extra layer — even if the role matrix had an allow, the ABAC policy blocks interns from prod"
+  },
+  {
+    "id": "dev-cross-team-s3",
+    "day": 4,
+    "title": "Cross-Team Bucket Access",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "staging",
+      "actions": ["s3:PutObject"],
+      "resources": ["arn:aws:s3:::staging-data/team=analytics/*"],
+      "justification": "Need to upload test fixtures for cross-team integration testing",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped requires Developers to only access resources belonging to their own team"
+    },
+    "teachingPoint": "Team scoping is a powerful ABAC control — even valid actions are denied when the resource belongs to another team"
+  },
+  {
+    "id": "dev-own-team-lambda",
+    "day": 4,
+    "title": "Own Team Lambda Invoke",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["lambda:InvokeFunction"],
+      "resources": ["arn:aws:lambda:us-east-1:*:function:core-data-processor"],
+      "justification": "Testing updated data processing function in dev",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits lambda:InvokeFunction in dev, team scope matches, and internal classification is within limits"
+    },
+    "teachingPoint": "When ABAC and RBAC both pass, access is granted — team scope matches and the action is within role permissions"
+  },
+  {
+    "id": "intern-staging-abac",
+    "day": 4,
+    "title": "Intern Staging Attempt",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Kai", "role": "Intern", "team": "data" },
+      "environment": "staging",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::staging-test-data/*"],
+      "justification": "Need staging data samples for my onboarding presentation",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Intern role only permits S3 read in dev environment, not staging"
+    },
+    "teachingPoint": "RBAC catches this before ABAC even applies — interns are dev-only at the role level"
+  },
+  {
+    "id": "dev-cross-team-ec2",
+    "day": 4,
+    "title": "Cross-Team EC2 Start",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["ec2:StartInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/i-payments-dev-02"],
+      "justification": "Payments team is out sick, need to restart their dev instance for a demo",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped requires team match; core team cannot manage payments team EC2 instances"
+    },
+    "teachingPoint": "Good intentions don't bypass team scoping — each team manages their own resources"
+  },
+  {
+    "id": "dev-own-team-s3-staging",
+    "day": 4,
+    "title": "Developer Own Team Staging S3",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "staging",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::staging-data/team=payments/*"],
+      "justification": "Reading staging test results for payment flow validation",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits S3 read in staging with confidential classification, and team scope matches"
+    },
+    "teachingPoint": "Same team + correct environment + allowed action = access granted through both RBAC and ABAC"
+  },
+  {
+    "id": "security-s3-prod-internal",
+    "day": 4,
+    "title": "Security Reads Prod Logs",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["s3:ListBucket"],
+      "resources": ["arn:aws:s3:::prod-access-logs"],
+      "justification": "Listing access log files for security review",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer role permits S3 read in all environments; no ABAC team-scoping applies to Security Engineers"
+    },
+    "teachingPoint": "Security Engineers aren't team-scoped — they need cross-team visibility for security monitoring"
+  },
+  {
+    "id": "intern-confidential-dev-s3",
+    "day": 4,
+    "title": "Intern Reads Confidential Dev Data",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::dev-api-secrets/*"],
+      "justification": "Need to read API keys for local development setup",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-intern-classification",
+      "explanation": "ABAC rule confidential-no-intern denies Interns access to confidential data even in dev"
+    },
+    "teachingPoint": "Data classification is an ABAC dimension — interns are limited to internal data regardless of environment"
+  },
+  {
+    "id": "dev-rds-snapshot-own-team",
+    "day": 4,
+    "title": "Developer Snapshots Own DB",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["rds:CreateDBSnapshot"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/core-dev-db"],
+      "justification": "Creating snapshot before schema migration in dev",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits rds:CreateDBSnapshot in dev, team scope matches"
+    },
+    "teachingPoint": "Snapshots before migrations are best practice — and the role matrix supports it in dev"
+  },
+  {
+    "id": "analyst-athena-dev",
+    "day": 4,
+    "title": "Analyst Queries Dev Athena",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "dev",
+      "actions": ["athena:StartQueryExecution", "athena:GetQueryResults"],
+      "resources": ["arn:aws:athena:us-east-1:*:workgroup/analytics-dev"],
+      "justification": "Developing and testing new analytics query in dev environment",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-data-analyst",
+      "explanation": "Data Analyst role permits Athena query actions in dev with confidential classification"
+    },
+    "teachingPoint": "Data Analysts have Athena access across all environments — dev is perfect for query development"
+  }
+]

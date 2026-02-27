@@ -1,0 +1,204 @@
+[
+  {
+    "id": "dev-create-west-region-rds",
+    "day": 10,
+    "title": "RDS in Wrong Region",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "dev",
+      "actions": ["rds:CreateDBInstance"],
+      "resources": ["arn:aws:rds:us-west-2:*:db/payments-test-db"],
+      "justification": "Creating test database in us-west-2 for disaster recovery testing",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-scp-region-restrict",
+      "explanation": "SCP scp-region-restrict denies resource creation outside us-east-1"
+    },
+    "teachingPoint": "DR testing is important but must happen in approved regions — SCPs enforce this at the org level"
+  },
+  {
+    "id": "analyst-s3-prod-read",
+    "day": 10,
+    "title": "Analyst Reads Prod Data",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-analytics-exports/*"],
+      "justification": "Downloading monthly analytics export for executive dashboard",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-data-analyst",
+      "explanation": "Data Analyst role permits s3:GetObject in prod with confidential classification; no guardrails block reads"
+    },
+    "teachingPoint": "Data Analysts have legitimate prod read access — not all prod access is dangerous when properly scoped"
+  },
+  {
+    "id": "security-detach-policy",
+    "day": 10,
+    "title": "Security Detaches Policy",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["iam:DetachRolePolicy"],
+      "resources": ["arn:aws:iam::*:role/compromised-service-role"],
+      "justification": "Emergency: detaching overly permissive policy from compromised service role",
+      "ticketId": "SEC-2025-1200",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-pb-no-iam-write",
+      "explanation": "Permission boundary pb-no-iam-write prevents IAM write actions for non-Admin roles, even in emergencies"
+    },
+    "teachingPoint": "Even urgent security responses hit guardrails — this is where break-glass procedures become essential"
+  },
+  {
+    "id": "dev-s3-public-acl-staging",
+    "day": 10,
+    "title": "Staging Bucket ACL Change",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "staging",
+      "actions": ["s3:PutBucketAcl"],
+      "resources": ["arn:aws:s3:::staging-demo-assets"],
+      "justification": "Making staging demo bucket accessible for client preview",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-scp-deny-s3-public",
+      "explanation": "SCP scp-deny-s3-public denies s3:PutBucketAcl for all roles"
+    },
+    "teachingPoint": "Bucket ACL changes are blocked in all environments — use CloudFront or signed URLs for external access"
+  },
+  {
+    "id": "auditor-cloudtrail-with-ticket",
+    "day": 10,
+    "title": "Auditor CloudTrail With Ticket",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["cloudtrail:LookupEvents", "cloudtrail:GetTrailStatus"],
+      "resources": ["arn:aws:cloudtrail:us-east-1:*:trail/main-audit-trail"],
+      "justification": "Investigating access pattern anomaly for compliance investigation",
+      "ticketId": "AUD-2025-0400",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role permits CloudTrail read in prod; ticket satisfies ABAC; no guardrails block reads"
+    },
+    "teachingPoint": "All three policy layers pass: RBAC allows, ABAC ticket satisfied, guardrails don't block — full stack approval"
+  },
+  {
+    "id": "dev-iam-create-user",
+    "day": 10,
+    "title": "Developer Creates IAM User",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["iam:CreateUser"],
+      "resources": ["arn:aws:iam::*:user/core-ci-bot"],
+      "justification": "Creating a service account for CI/CD pipeline automation",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-pb-no-iam-write",
+      "explanation": "Permission boundary pb-no-iam-write prevents IAM write actions for non-Admin roles"
+    },
+    "teachingPoint": "Service accounts must be created by Admins — developers request them through proper channels"
+  },
+  {
+    "id": "security-s3-read-prod-internal",
+    "day": 10,
+    "title": "Security Reads Prod Logs",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-vpc-flow-logs/*"],
+      "justification": "Analyzing VPC flow logs for network security assessment",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer permits S3 read in prod; internal classification needs no ticket; no guardrails block reads"
+    },
+    "teachingPoint": "Internal classification data flows freely for Security Engineers — no ABAC ticket needed for non-restricted data"
+  },
+  {
+    "id": "intern-dev-s3-internal",
+    "day": 10,
+    "title": "Intern Dev S3 Read",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Kai", "role": "Intern", "team": "data" },
+      "environment": "dev",
+      "actions": ["s3:ListBucket"],
+      "resources": ["arn:aws:s3:::dev-training-materials"],
+      "justification": "Browsing training materials bucket for onboarding",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-intern",
+      "explanation": "Intern role permits S3 read in dev with internal classification; all three policy layers pass"
+    },
+    "teachingPoint": "Even with guardrails active, simple allowed actions pass through — the layers only block what they're designed to block"
+  },
+  {
+    "id": "dev-cross-team-s3-delete-staging",
+    "day": 10,
+    "title": "Cross-Team Staging Delete",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "staging",
+      "actions": ["s3:DeleteObject"],
+      "resources": ["arn:aws:s3:::staging-data/team=core/temp-files/*"],
+      "justification": "Core team asked me to clean up their temp files in staging",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped blocks payments team from deleting core team resources"
+    },
+    "teachingPoint": "ABAC team scoping catches this before guardrails — multiple layers provide defense in depth"
+  },
+  {
+    "id": "security-guardduty-no-ticket",
+    "day": 10,
+    "title": "Security GuardDuty No Ticket",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["guardduty:ListFindings"],
+      "resources": ["arn:aws:guardduty:us-east-1:*:detector/prod-detector"],
+      "justification": "Quick check on GuardDuty findings dashboard",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-restricted-no-ticket",
+      "explanation": "Restricted data requires a ticket ID per ABAC rule, even for Security Engineers"
+    },
+    "teachingPoint": "Quick checks on restricted data still need a ticket — there are no shortcuts for the most sensitive data"
+  }
+]

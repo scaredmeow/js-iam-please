@@ -1,0 +1,201 @@
+[
+  {
+    "id": "analyst-cross-env-athena",
+    "day": 6,
+    "title": "Analyst Athena Query",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "prod",
+      "actions": ["athena:StartQueryExecution", "athena:GetQueryResults"],
+      "resources": ["arn:aws:athena:us-east-1:*:workgroup/analytics-prod"],
+      "justification": "Running quarterly revenue analysis on production data warehouse",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-data-analyst",
+      "explanation": "Data Analyst role permits Athena query actions in prod with confidential classification"
+    },
+    "teachingPoint": "Data Analysts have broad read access for analytics — Athena queries are their primary tool across all environments"
+  },
+  {
+    "id": "dev-team-mismatch-ec2",
+    "day": 6,
+    "title": "Wrong Team EC2 Stop",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "staging",
+      "actions": ["ec2:StopInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/i-payments-staging-01"],
+      "justification": "Payments team asked me to stop their staging instance while they are on vacation",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped requires team match; core team developer cannot manage payments team EC2 instances"
+    },
+    "teachingPoint": "Favors between teams don't override policy — each team must manage their own resources or escalate properly"
+  },
+  {
+    "id": "security-guardduty-prod",
+    "day": 6,
+    "title": "GuardDuty Investigation",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["guardduty:GetFindings", "guardduty:ListFindings"],
+      "resources": ["arn:aws:guardduty:us-east-1:*:detector/prod-detector"],
+      "justification": "Investigating suspicious API call patterns flagged by automated alerting",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-restricted-no-ticket",
+      "explanation": "GuardDuty findings are restricted data; ABAC rule blocks access without a ticket ID"
+    },
+    "teachingPoint": "Even urgent security investigations need a ticket — the audit trail is non-negotiable for restricted data"
+  },
+  {
+    "id": "dev-lambda-cross-team",
+    "day": 6,
+    "title": "Cross-Team Lambda Invoke",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "staging",
+      "actions": ["lambda:InvokeFunction"],
+      "resources": ["arn:aws:lambda:us-east-1:*:function:analytics-etl-pipeline"],
+      "justification": "Need to trigger analytics ETL to test payment data integration",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped requires team match; payments team cannot invoke analytics team Lambda functions"
+    },
+    "teachingPoint": "Cross-team Lambda invocations are blocked by ABAC — use proper integration patterns instead"
+  },
+  {
+    "id": "intern-prod-rds",
+    "day": 6,
+    "title": "Intern Prod Database",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
+      "environment": "prod",
+      "actions": ["rds:DescribeDBInstances"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/prod-main-db"],
+      "justification": "Curious about production database configuration"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-intern-prod",
+      "explanation": "ABAC rule intern-no-prod denies Interns access to production environments"
+    },
+    "teachingPoint": "ABAC catches this even though the action seems harmless — interns are blocked from all prod access"
+  },
+  {
+    "id": "dev-own-team-ec2-staging",
+    "day": 6,
+    "title": "Developer Starts Own Staging",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "staging",
+      "actions": ["ec2:StartInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/i-core-staging-01"],
+      "justification": "Starting staging instance for integration test run",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits ec2:StartInstances in staging, team scope matches"
+    },
+    "teachingPoint": "Own team + staging + allowed action = green light through both RBAC and ABAC"
+  },
+  {
+    "id": "auditor-cloudtrail-restricted",
+    "day": 6,
+    "title": "Auditor CloudTrail Restricted",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["cloudtrail:LookupEvents"],
+      "resources": ["arn:aws:cloudtrail:us-east-1:*:trail/main-audit-trail"],
+      "justification": "Investigating access anomaly flagged in compliance dashboard",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-restricted-no-ticket",
+      "explanation": "Restricted data access requires a ticket ID per ABAC rule, even for Auditors"
+    },
+    "teachingPoint": "Auditors have the role permissions but ABAC still requires a ticket for restricted data"
+  },
+  {
+    "id": "security-iam-read-staging",
+    "day": 6,
+    "title": "Security IAM Review Staging",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "staging",
+      "actions": ["iam:GetRole", "iam:GetPolicy"],
+      "resources": ["arn:aws:iam::*:role/staging-service-role"],
+      "justification": "Reviewing staging service role permissions for security assessment",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer role permits IAM read actions in all environments; internal classification is within limits"
+    },
+    "teachingPoint": "IAM read access for Security Engineers is unrestricted by environment — they audit everywhere"
+  },
+  {
+    "id": "dev-s3-delete-cross-team",
+    "day": 6,
+    "title": "Developer Deletes Other Team Data",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:DeleteObject"],
+      "resources": ["arn:aws:s3:::dev-data/team=analytics/old-reports/*"],
+      "justification": "Analytics team asked me to clean up their old dev reports",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped blocks core team from deleting analytics team resources"
+    },
+    "teachingPoint": "Destructive actions on another team's resources are doubly dangerous — ABAC team scoping prevents this"
+  },
+  {
+    "id": "analyst-rds-staging-describe",
+    "day": 6,
+    "title": "Analyst Checks Staging DB",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "staging",
+      "actions": ["rds:DescribeDBInstances"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/staging-analytics-db"],
+      "justification": "Checking staging database specs for query optimization",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-data-analyst",
+      "explanation": "Data Analyst role permits rds:DescribeDBInstances in staging with confidential classification"
+    },
+    "teachingPoint": "Data Analysts can check database metadata in staging — useful for query planning and optimization"
+  }
+]

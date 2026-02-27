@@ -1,0 +1,202 @@
+[
+  {
+    "id": "dev-create-wrong-region",
+    "day": 8,
+    "title": "Wrong Region Provisioning",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["ec2:CreateSecurityGroup"],
+      "resources": ["arn:aws:ec2:eu-west-1:*:security-group/*"],
+      "justification": "Setting up security group in EU region for latency testing",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-scp-region-restrict",
+      "explanation": "SCP scp-region-restrict denies resource creation outside us-east-1"
+    },
+    "teachingPoint": "SCPs are organization-wide guardrails — no role can create resources outside the approved region"
+  },
+  {
+    "id": "security-iam-create-policy",
+    "day": 8,
+    "title": "Security Creates IAM Policy",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["iam:CreatePolicy"],
+      "resources": ["arn:aws:iam::*:policy/security-scan-policy"],
+      "justification": "Creating a new IAM policy for automated security scanning tool",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-pb-no-iam-write",
+      "explanation": "Permission boundary pb-no-iam-write prevents IAM write actions for non-Admin roles"
+    },
+    "teachingPoint": "Permission boundaries limit the maximum permissions a role can have — even Security Engineers cannot write IAM policies"
+  },
+  {
+    "id": "dev-s3-public-bucket",
+    "day": 8,
+    "title": "Make Bucket Public",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:PutBucketPolicy"],
+      "resources": ["arn:aws:s3:::dev-static-assets"],
+      "justification": "Need to make the static assets bucket publicly readable for the demo site",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-scp-deny-s3-public",
+      "explanation": "SCP scp-deny-s3-public denies s3:PutBucketPolicy for all roles with no exemptions"
+    },
+    "teachingPoint": "Making S3 buckets public is a common misconfiguration — SCPs provide a hard block that no one can override"
+  },
+  {
+    "id": "auditor-config-prod-with-ticket",
+    "day": 8,
+    "title": "Auditor Config With Ticket",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["config:GetComplianceDetailsByConfigRule"],
+      "resources": ["arn:aws:config:us-east-1:*:config-rule/s3-encryption-check"],
+      "justification": "Checking S3 encryption compliance for quarterly report",
+      "ticketId": "AUD-2025-0340",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role permits Config read in prod; ticket satisfies ABAC; no guardrails block read actions"
+    },
+    "teachingPoint": "Guardrails target write/create actions — read operations pass through even with SCPs active"
+  },
+  {
+    "id": "dev-create-sg-us-east",
+    "day": 8,
+    "title": "Security Group in Approved Region",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["ec2:CreateSecurityGroup"],
+      "resources": ["arn:aws:ec2:us-east-1:*:security-group/*"],
+      "justification": "Creating security group for new microservice in dev",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Developer role does not include ec2:CreateSecurityGroup — only Describe/Start/Stop are permitted"
+    },
+    "teachingPoint": "Even in the right region, the role must allow the action — SCPs are not the only check"
+  },
+  {
+    "id": "security-s3-put-acl",
+    "day": 8,
+    "title": "Security Sets Bucket ACL",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["s3:PutBucketAcl"],
+      "resources": ["arn:aws:s3:::prod-security-logs"],
+      "justification": "Updating bucket ACL to restrict access after security incident",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-scp-deny-s3-public",
+      "explanation": "SCP scp-deny-s3-public denies s3:PutBucketAcl for all roles with no exemptions"
+    },
+    "teachingPoint": "Even well-intentioned ACL changes are blocked — SCPs prevent any bucket policy/ACL modifications"
+  },
+  {
+    "id": "dev-lambda-own-team-staging",
+    "day": 8,
+    "title": "Developer Lambda Staging",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "staging",
+      "actions": ["lambda:InvokeFunction"],
+      "resources": ["arn:aws:lambda:us-east-1:*:function:payments-checkout-handler"],
+      "justification": "Testing checkout flow Lambda after code update",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits Lambda invoke in staging; team scope matches; no guardrails block Lambda invoke"
+    },
+    "teachingPoint": "Guardrails focus on dangerous operations — normal development actions pass through unaffected"
+  },
+  {
+    "id": "auditor-iam-create-role",
+    "day": 8,
+    "title": "Auditor Creates IAM Role",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["iam:CreateRole"],
+      "resources": ["arn:aws:iam::*:role/compliance-scanner-role"],
+      "justification": "Creating a role for the new compliance scanning tool"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-pb-no-iam-write",
+      "explanation": "Permission boundary pb-no-iam-write prevents IAM write actions for non-Admin roles"
+    },
+    "teachingPoint": "Auditors read, they don't write — IAM role creation is an Admin-only operation enforced by permission boundaries"
+  },
+  {
+    "id": "dev-create-ap-southeast",
+    "day": 8,
+    "title": "RDS in Asia Pacific",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["rds:CreateDBInstance"],
+      "resources": ["arn:aws:rds:ap-southeast-1:*:db/core-test-db"],
+      "justification": "Creating test database in Singapore region for APAC latency testing",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-scp-region-restrict",
+      "explanation": "SCP scp-region-restrict denies resource creation outside us-east-1; ap-southeast-1 is denied"
+    },
+    "teachingPoint": "Region restrictions apply to all resource types — databases, compute, everything must stay in approved regions"
+  },
+  {
+    "id": "analyst-athena-prod-confidential",
+    "day": 8,
+    "title": "Analyst Prod Athena Query",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "prod",
+      "actions": ["athena:StartQueryExecution"],
+      "resources": ["arn:aws:athena:us-east-1:*:workgroup/analytics-prod"],
+      "justification": "Running monthly churn analysis on production data",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-data-analyst",
+      "explanation": "Data Analyst role permits Athena in prod; confidential classification is within limits; no guardrails block Athena queries"
+    },
+    "teachingPoint": "Guardrails don't interfere with normal analytics work — they target infrastructure changes, not data queries"
+  }
+]

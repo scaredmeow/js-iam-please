@@ -5,18 +5,12 @@
     "title": "Staging Deploy",
     "difficulty": 2,
     "request": {
-      "requester": {
-        "name": "Alex",
-        "role": "Developer",
-        "team": "core"
-      },
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
       "environment": "staging",
       "actions": ["ec2:RunInstances"],
       "resources": ["arn:aws:ec2:us-east-1:*:instance/*"],
       "justification": "Deploying new service version to staging for integration testing",
-      "constraints": {
-        "dataClassification": "confidential"
-      }
+      "constraints": { "dataClassification": "confidential" }
     },
     "expected": {
       "decision": "DENY",
@@ -31,11 +25,7 @@
     "title": "PassRole Trap",
     "difficulty": 4,
     "request": {
-      "requester": {
-        "name": "Alex",
-        "role": "Developer",
-        "team": "core"
-      },
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
       "environment": "dev",
       "actions": ["iam:PassRole"],
       "resources": ["*"],
@@ -54,11 +44,7 @@
     "title": "Intern Describes Instances",
     "difficulty": 1,
     "request": {
-      "requester": {
-        "name": "Mina",
-        "role": "Intern",
-        "team": "core"
-      },
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
       "environment": "dev",
       "actions": ["ec2:DescribeInstances"],
       "resources": ["arn:aws:ec2:us-east-1:*:instance/*"],
@@ -77,11 +63,7 @@
     "title": "Developer RDS Snapshot",
     "difficulty": 2,
     "request": {
-      "requester": {
-        "name": "Alex",
-        "role": "Developer",
-        "team": "core"
-      },
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
       "environment": "staging",
       "actions": ["rds:CreateDBSnapshot"],
       "resources": ["arn:aws:rds:us-east-1:*:db/staging-app-db"],
@@ -93,5 +75,122 @@
       "explanation": "Developer role permits rds:CreateDBSnapshot in staging environment"
     },
     "teachingPoint": "Developers can perform write operations in non-prod environments — staging snapshots before migrations are good practice"
+  },
+  {
+    "id": "security-iam-get-prod",
+    "day": 3,
+    "title": "Security Reviews IAM Policies",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["iam:GetPolicy", "iam:ListPolicies"],
+      "resources": ["arn:aws:iam::*:policy/*"],
+      "justification": "Reviewing IAM policies for overly permissive access patterns"
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer role permits IAM read actions in all environments"
+    },
+    "teachingPoint": "Security Engineers need IAM read access to audit policies — this is core to their job function"
+  },
+  {
+    "id": "dev-ec2-stop-dev",
+    "day": 3,
+    "title": "Developer Stops Dev Instance",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "dev",
+      "actions": ["ec2:StopInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/i-payments-dev-01"],
+      "justification": "Stopping dev instance to save costs over the weekend",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits ec2:StopInstances in dev environment"
+    },
+    "teachingPoint": "Cost-conscious instance management in dev is encouraged — developers can start and stop their own instances"
+  },
+  {
+    "id": "intern-lambda-dev",
+    "day": 3,
+    "title": "Intern Invokes Lambda",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Kai", "role": "Intern", "team": "core" },
+      "environment": "dev",
+      "actions": ["lambda:InvokeFunction"],
+      "resources": ["arn:aws:lambda:us-east-1:*:function:core-hello-world"],
+      "justification": "Testing the hello-world Lambda as part of onboarding tutorial"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Intern role does not include Lambda permissions — only S3 read, EC2 describe, and RDS describe in dev"
+    },
+    "teachingPoint": "Interns have a very narrow permission set — Lambda invoke is a Developer-level action"
+  },
+  {
+    "id": "analyst-s3-staging-read",
+    "day": 3,
+    "title": "Analyst Reads Staging Export",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "staging",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::staging-analytics-exports/*"],
+      "justification": "Downloading staging analytics export to validate data pipeline",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-data-analyst",
+      "explanation": "Data Analyst role permits s3:GetObject in all environments with confidential classification"
+    },
+    "teachingPoint": "Data Analysts have S3 read access everywhere — their role is built around data consumption"
+  },
+  {
+    "id": "dev-s3-put-dev",
+    "day": 3,
+    "title": "Developer Uploads to Dev",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:PutObject"],
+      "resources": ["arn:aws:s3:::dev-app-data/team=core/*"],
+      "justification": "Uploading test fixtures for unit test suite",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits s3:PutObject in dev with internal classification"
+    },
+    "teachingPoint": "Dev environment is the developer's playground — write access to your own team's buckets is standard"
+  },
+  {
+    "id": "auditor-config-dev",
+    "day": 3,
+    "title": "Auditor Checks Dev Compliance",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "dev",
+      "actions": ["config:GetComplianceDetailsByConfigRule"],
+      "resources": ["arn:aws:config:us-east-1:*:config-rule/encryption-check"],
+      "justification": "Verifying that dev environment also meets encryption compliance rules"
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role permits AWS Config read actions in all environments"
+    },
+    "teachingPoint": "Compliance doesn't stop at prod — auditors verify controls across all environments"
   }
 ]

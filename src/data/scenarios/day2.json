@@ -5,20 +5,14 @@
     "title": "Debug Logs",
     "difficulty": 3,
     "request": {
-      "requester": {
-        "name": "Alex",
-        "role": "Developer",
-        "team": "payments"
-      },
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
       "environment": "prod",
       "actions": ["s3:GetObject"],
       "resources": ["arn:aws:s3:::prod-app-logs/team=payments/*"],
       "justification": "Need to investigate payment processing error in production logs",
       "ticketId": "INC-2024-0451",
       "timeWindowMinutes": 120,
-      "constraints": {
-        "dataClassification": "internal"
-      }
+      "constraints": { "dataClassification": "internal" }
     },
     "expected": {
       "decision": "APPROVE",
@@ -33,11 +27,7 @@
     "title": "Broad Compute",
     "difficulty": 3,
     "request": {
-      "requester": {
-        "name": "Alex",
-        "role": "Developer",
-        "team": "core"
-      },
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
       "environment": "prod",
       "actions": ["ec2:RunInstances"],
       "resources": ["arn:aws:ec2:us-east-1:*:instance/*"],
@@ -56,11 +46,7 @@
     "title": "Snapshot Panic",
     "difficulty": 3,
     "request": {
-      "requester": {
-        "name": "Jordan",
-        "role": "Data Analyst",
-        "team": "analytics"
-      },
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
       "environment": "prod",
       "actions": ["rds:CreateDBSnapshot"],
       "resources": ["arn:aws:rds:us-east-1:*:db/prod-main-db"],
@@ -72,5 +58,144 @@
       "explanation": "No matching allow in Role Matrix for role \"Data Analyst\", action \"rds:CreateDBSnapshot\", resource type \"rds\", environment \"prod\""
     },
     "teachingPoint": "Creating database snapshots is a write-like operation — Data Analysts have read-only access, not operational control"
+  },
+  {
+    "id": "dev-lambda-staging",
+    "day": 2,
+    "title": "Lambda Test in Staging",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "staging",
+      "actions": ["lambda:InvokeFunction", "lambda:GetFunction"],
+      "resources": ["arn:aws:lambda:us-east-1:*:function:core-api-handler"],
+      "justification": "Testing updated API handler function before production deployment",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits lambda:InvokeFunction and lambda:GetFunction in staging with confidential classification"
+    },
+    "teachingPoint": "Staging is the right place to test — developers have full Lambda access in non-prod environments"
+  },
+  {
+    "id": "intern-ec2-staging",
+    "day": 2,
+    "title": "Intern in Staging",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Kai", "role": "Intern", "team": "core" },
+      "environment": "staging",
+      "actions": ["ec2:DescribeInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/*"],
+      "justification": "Want to see staging infrastructure for my onboarding report"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Intern role only permits ec2:DescribeInstances in dev, not staging"
+    },
+    "teachingPoint": "Interns are restricted to dev only — staging has real-ish data and is off limits"
+  },
+  {
+    "id": "security-cloudtrail-staging",
+    "day": 2,
+    "title": "Security Checks Staging Trails",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "staging",
+      "actions": ["cloudtrail:LookupEvents"],
+      "resources": ["arn:aws:cloudtrail:us-east-1:*:trail/staging-audit-trail"],
+      "justification": "Reviewing staging CloudTrail for suspicious deployment patterns",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer role permits CloudTrail read actions in all environments"
+    },
+    "teachingPoint": "Security Engineers monitor all environments — staging can reveal attack patterns before they hit prod"
+  },
+  {
+    "id": "analyst-athena-staging",
+    "day": 2,
+    "title": "Analyst Queries Staging",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "staging",
+      "actions": ["athena:StartQueryExecution"],
+      "resources": ["arn:aws:athena:us-east-1:*:workgroup/analytics-staging"],
+      "justification": "Testing new query against staging data before running on prod",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-data-analyst",
+      "explanation": "Data Analyst role permits Athena query actions in staging with confidential classification"
+    },
+    "teachingPoint": "Testing queries in staging first is good practice — and the role matrix supports it"
+  },
+  {
+    "id": "dev-s3-delete-staging",
+    "day": 2,
+    "title": "Developer Cleans Staging",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "staging",
+      "actions": ["s3:DeleteObject"],
+      "resources": ["arn:aws:s3:::staging-data/team=payments/old-exports/*"],
+      "justification": "Cleaning up old test export files from staging bucket",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits s3:DeleteObject in staging with confidential classification"
+    },
+    "teachingPoint": "Developers can manage their team's staging data including deletes — staging is their sandbox"
+  },
+  {
+    "id": "auditor-s3-prod-read",
+    "day": 2,
+    "title": "Auditor Reads Prod Configs",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["s3:ListBucket", "s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-compliance-reports/*"],
+      "justification": "Reviewing compliance report artifacts for regulatory filing",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role permits S3 read in prod with restricted classification"
+    },
+    "teachingPoint": "Auditors have the broadest read access — they need to see everything for compliance verification"
+  },
+  {
+    "id": "dev-rds-describe-staging",
+    "day": 2,
+    "title": "Developer Checks Staging DB",
+    "difficulty": 1,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "staging",
+      "actions": ["rds:DescribeDBInstances"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/staging-core-db"],
+      "justification": "Checking database instance status before running migration",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits rds:DescribeDBInstances in staging with confidential classification"
+    },
+    "teachingPoint": "Describe actions are low-risk metadata reads — developers need them for operational awareness"
   }
 ]

@@ -1,0 +1,204 @@
+[
+  {
+    "id": "auditor-iam-review",
+    "day": 7,
+    "title": "Auditor IAM Policy Review",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["iam:GetPolicy", "iam:ListPolicies", "iam:GetRole"],
+      "resources": ["arn:aws:iam::*:policy/*"],
+      "justification": "Annual IAM policy review for SOC 2 compliance certification",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-restricted-no-ticket",
+      "explanation": "IAM policy data is restricted; ABAC rule blocks access without a ticket ID"
+    },
+    "teachingPoint": "Compliance audits are important but still need a ticket — restricted data access must always be traceable"
+  },
+  {
+    "id": "dev-staging-s3-own-team",
+    "day": 7,
+    "title": "Developer Staging Upload",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "staging",
+      "actions": ["s3:PutObject"],
+      "resources": ["arn:aws:s3:::staging-data/team=payments/*"],
+      "justification": "Uploading test data for payment processing integration tests",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role allows S3 write in staging with confidential classification, and team scope matches"
+    },
+    "teachingPoint": "When role, environment, classification, and team all align, access flows smoothly"
+  },
+  {
+    "id": "dev-delete-prod-s3",
+    "day": 7,
+    "title": "Prod Data Cleanup",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "prod",
+      "actions": ["s3:DeleteObject"],
+      "resources": ["arn:aws:s3:::prod-app-data/team=core/*"],
+      "justification": "Cleaning up stale cache files that are consuming storage",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Developer role does not permit s3:DeleteObject in prod environment"
+    },
+    "teachingPoint": "Destructive operations in production are almost always denied for non-admin roles"
+  },
+  {
+    "id": "security-cloudtrail-with-ticket",
+    "day": 7,
+    "title": "Security CloudTrail With Ticket",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["cloudtrail:LookupEvents", "cloudtrail:GetTrailStatus"],
+      "resources": ["arn:aws:cloudtrail:us-east-1:*:trail/main-audit-trail"],
+      "justification": "Investigating unauthorized access attempt detected by SIEM",
+      "ticketId": "SEC-2025-0950",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer role allows CloudTrail read in prod with restricted classification; ticket satisfies ABAC rule"
+    },
+    "teachingPoint": "With a ticket, Security Engineers can investigate incidents — the process enables rapid response"
+  },
+  {
+    "id": "dev-cross-team-lambda-dev",
+    "day": 7,
+    "title": "Cross-Team Lambda in Dev",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "dev",
+      "actions": ["lambda:GetFunction"],
+      "resources": ["arn:aws:lambda:us-east-1:*:function:core-auth-service"],
+      "justification": "Need to check auth service function config for API integration",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped blocks payments team from accessing core team Lambda functions"
+    },
+    "teachingPoint": "Even read-only Lambda access is team-scoped — use documentation or ask the team directly"
+  },
+  {
+    "id": "auditor-iam-with-ticket",
+    "day": 7,
+    "title": "Auditor IAM With Ticket",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["iam:GetPolicy", "iam:ListPolicies"],
+      "resources": ["arn:aws:iam::*:policy/*"],
+      "justification": "SOC 2 annual IAM policy review",
+      "ticketId": "AUD-2025-0300",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role permits IAM read in prod with restricted classification; ticket satisfies ABAC rule"
+    },
+    "teachingPoint": "With a ticket, the same request that was denied earlier now succeeds — process matters"
+  },
+  {
+    "id": "intern-dev-internal-rds",
+    "day": 7,
+    "title": "Intern Dev RDS Check",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Kai", "role": "Intern", "team": "data" },
+      "environment": "dev",
+      "actions": ["rds:DescribeDBInstances"],
+      "resources": ["arn:aws:rds:us-east-1:*:db/dev-training-db"],
+      "justification": "Checking training database status for onboarding exercise",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-intern",
+      "explanation": "Intern role permits rds:DescribeDBInstances in dev with internal classification; no ABAC blocks"
+    },
+    "teachingPoint": "Interns in dev with internal data — this is the sweet spot where all policies align"
+  },
+  {
+    "id": "dev-s3-prod-read-confidential",
+    "day": 7,
+    "title": "Developer Reads Prod Confidential",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-app-configs/team=core/*"],
+      "justification": "Need to compare prod config with staging for debugging",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "implicit-deny",
+      "explanation": "Developer role only permits s3:GetObject in prod with internal classification, not confidential"
+    },
+    "teachingPoint": "Prod read access for Developers is limited to internal classification — confidential prod data requires a different role"
+  },
+  {
+    "id": "analyst-s3-prod-internal",
+    "day": 7,
+    "title": "Analyst Reads Prod Reports",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Jordan", "role": "Data Analyst", "team": "analytics" },
+      "environment": "prod",
+      "actions": ["s3:GetObject"],
+      "resources": ["arn:aws:s3:::prod-analytics-reports/*"],
+      "justification": "Downloading weekly analytics report for stakeholder presentation",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-data-analyst",
+      "explanation": "Data Analyst role permits s3:GetObject in prod with confidential classification"
+    },
+    "teachingPoint": "Data Analysts are built for data consumption — prod read access at confidential level is their bread and butter"
+  },
+  {
+    "id": "dev-ec2-describe-cross-team",
+    "day": 7,
+    "title": "Developer Describes Other Team EC2",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["ec2:DescribeInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/i-analytics-dev-01"],
+      "justification": "Checking if analytics dev instance is running for API testing",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-team-scope",
+      "explanation": "ABAC rule dev-team-scoped blocks core team from describing analytics team EC2 instances"
+    },
+    "teachingPoint": "Even describe actions are team-scoped for Developers — you can only see your own team's infrastructure"
+  }
+]

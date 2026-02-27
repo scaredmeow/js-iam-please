@@ -1,0 +1,205 @@
+[
+  {
+    "id": "auditor-config-compliance",
+    "day": 9,
+    "title": "Auditor Config Check",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["config:GetComplianceDetailsByConfigRule"],
+      "resources": ["arn:aws:config:us-east-1:*:config-rule/s3-encryption-check"],
+      "justification": "Checking S3 encryption compliance status for quarterly report",
+      "ticketId": "AUD-2025-0341",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role permits Config read in prod; ticket satisfies ABAC; no guardrails block reads"
+    },
+    "teachingPoint": "When all layers align — role, ABAC, and guardrails — access is granted"
+  },
+  {
+    "id": "dev-attach-policy-boundary",
+    "day": 9,
+    "title": "Developer Attaches Policy",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["iam:AttachRolePolicy"],
+      "resources": ["arn:aws:iam::*:role/core-lambda-role"],
+      "justification": "Attaching S3 access policy to Lambda execution role for new feature",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-pb-no-iam-write",
+      "explanation": "Permission boundary pb-no-iam-write prevents IAM write actions for non-Admin roles"
+    },
+    "teachingPoint": "Attaching policies is a privilege escalation vector — permission boundaries ensure only Admins can modify IAM"
+  },
+  {
+    "id": "security-cloudtrail-with-ticket",
+    "day": 9,
+    "title": "Security CloudTrail Audit",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["cloudtrail:LookupEvents"],
+      "resources": ["arn:aws:cloudtrail:us-east-1:*:trail/main-audit-trail"],
+      "justification": "Investigating potential unauthorized access pattern detected by SIEM",
+      "ticketId": "SEC-2025-1104",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-security-engineer",
+      "explanation": "Security Engineer allows CloudTrail read in prod; ticket satisfies ABAC; no guardrails block reads"
+    },
+    "teachingPoint": "All three layers checked: RBAC allows, ABAC ticket met, guardrails don't block reads — access granted"
+  },
+  {
+    "id": "dev-put-bucket-policy-staging",
+    "day": 9,
+    "title": "Developer Bucket Policy Staging",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "payments" },
+      "environment": "staging",
+      "actions": ["s3:PutBucketPolicy"],
+      "resources": ["arn:aws:s3:::staging-payments-public"],
+      "justification": "Setting up bucket policy for staging webhook endpoint",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-scp-deny-s3-public",
+      "explanation": "SCP scp-deny-s3-public denies s3:PutBucketPolicy for all roles"
+    },
+    "teachingPoint": "Bucket policy modifications are blocked everywhere — staging included. SCPs are environment-agnostic"
+  },
+  {
+    "id": "security-delete-policy",
+    "day": 9,
+    "title": "Security Deletes IAM Policy",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["iam:DeletePolicy"],
+      "resources": ["arn:aws:iam::*:policy/overly-permissive-legacy-policy"],
+      "justification": "Removing overly permissive legacy policy identified in security audit",
+      "ticketId": "SEC-2025-1110",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-pb-no-iam-write",
+      "explanation": "Permission boundary pb-no-iam-write prevents IAM write actions (iam:Delete*) for non-Admin roles"
+    },
+    "teachingPoint": "Even removing bad policies requires Admin — Security Engineers identify issues, Admins remediate"
+  },
+  {
+    "id": "dev-own-team-s3-dev",
+    "day": 9,
+    "title": "Developer Dev S3 Write",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["s3:PutObject"],
+      "resources": ["arn:aws:s3:::dev-app-data/team=core/*"],
+      "justification": "Uploading new test fixtures for integration tests",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-developer",
+      "explanation": "Developer role permits S3 write in dev; team scope matches; no guardrails block S3 PutObject"
+    },
+    "teachingPoint": "Normal dev work flows through all three layers without friction — guardrails target dangerous operations"
+  },
+  {
+    "id": "intern-prod-ec2-guardrail",
+    "day": 9,
+    "title": "Intern Prod EC2 Describe",
+    "difficulty": 3,
+    "request": {
+      "requester": { "name": "Mina", "role": "Intern", "team": "core" },
+      "environment": "prod",
+      "actions": ["ec2:DescribeInstances"],
+      "resources": ["arn:aws:ec2:us-east-1:*:instance/*"],
+      "justification": "Want to see production infrastructure for learning"
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "abac-deny-intern-prod",
+      "explanation": "ABAC rule intern-no-prod denies Interns access to production; guardrails don't even need to evaluate"
+    },
+    "teachingPoint": "Policies are evaluated in order — ABAC catches this before guardrails are even considered"
+  },
+  {
+    "id": "dev-create-eu-west-lambda",
+    "day": 9,
+    "title": "Lambda in EU Region",
+    "difficulty": 4,
+    "request": {
+      "requester": { "name": "Alex", "role": "Developer", "team": "core" },
+      "environment": "dev",
+      "actions": ["lambda:CreateFunction"],
+      "resources": ["arn:aws:lambda:eu-west-1:*:function:core-eu-handler"],
+      "justification": "Creating Lambda function in EU for GDPR data processing requirements",
+      "constraints": { "dataClassification": "confidential" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-scp-region-restrict",
+      "explanation": "SCP scp-region-restrict denies resource creation outside us-east-1"
+    },
+    "teachingPoint": "GDPR requirements don't override SCPs — work with your Admin to set up approved EU infrastructure"
+  },
+  {
+    "id": "auditor-s3-list-prod",
+    "day": 9,
+    "title": "Auditor Lists Prod Buckets",
+    "difficulty": 2,
+    "request": {
+      "requester": { "name": "Priya", "role": "Auditor", "team": "compliance" },
+      "environment": "prod",
+      "actions": ["s3:ListBucket"],
+      "resources": ["arn:aws:s3:::prod-compliance-data"],
+      "justification": "Listing compliance data files for regulatory review",
+      "constraints": { "dataClassification": "internal" }
+    },
+    "expected": {
+      "decision": "APPROVE",
+      "reasonCode": "role-allows-auditor",
+      "explanation": "Auditor role permits S3 read in prod; internal classification needs no ticket; no guardrails block reads"
+    },
+    "teachingPoint": "Internal classification data doesn't trigger the ABAC ticket requirement — only restricted does"
+  },
+  {
+    "id": "security-iam-put-policy",
+    "day": 9,
+    "title": "Security Updates IAM Policy",
+    "difficulty": 5,
+    "request": {
+      "requester": { "name": "Sam", "role": "Security Engineer", "team": "security" },
+      "environment": "prod",
+      "actions": ["iam:PutRolePolicy"],
+      "resources": ["arn:aws:iam::*:role/compromised-service-role"],
+      "justification": "Updating inline policy to restrict compromised role permissions",
+      "ticketId": "SEC-2025-1115",
+      "constraints": { "dataClassification": "restricted" }
+    },
+    "expected": {
+      "decision": "DENY",
+      "reasonCode": "guardrail-pb-no-iam-write",
+      "explanation": "Permission boundary pb-no-iam-write prevents IAM write actions (iam:Put*) for non-Admin roles"
+    },
+    "teachingPoint": "Inline policy updates are IAM writes — permission boundaries block them for all non-Admin roles"
+  }
+]
