@@ -859,6 +859,169 @@
       background: var(--accent-blue);
       color: #fff;
     }
+
+    /* --- Mobile Rulebook Button --- */
+    #btn-mobile-rulebook {
+      display: none; /* hidden on desktop */
+    }
+
+    /* ===== Mobile Responsive ===== */
+    @media (max-width: 768px) {
+      body {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+      }
+
+      /* Header: stack vertically */
+      header {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+      }
+
+      .header-title {
+        order: -1;
+        flex-basis: 100%;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+      }
+
+      .header-day,
+      .header-score {
+        font-size: 0.75rem;
+      }
+
+      .header-game-id {
+        flex-basis: 100%;
+        text-align: center;
+        max-width: none;
+      }
+
+      /* Action bar */
+      #action-bar {
+        padding: 0.4rem 0.5rem;
+        gap: 0.2rem;
+      }
+
+      /* Game area: stack panels vertically */
+      #game-area {
+        flex-direction: column;
+        padding: 0.5rem;
+        gap: 0.5rem;
+        min-height: auto;
+      }
+
+      .panel {
+        padding: 0.75rem;
+        flex: none;
+      }
+
+      /* Hide inline rulebook panel on mobile */
+      #rulebook-panel {
+        display: none;
+      }
+
+      /* Show mobile rulebook button */
+      #btn-mobile-rulebook {
+        display: inline-flex;
+      }
+
+      /* Fields: stack label above value on very small screens */
+      .field {
+        flex-direction: column;
+        gap: 0.1rem;
+      }
+
+      .field-label {
+        min-width: unset;
+        font-size: 0.7rem;
+      }
+
+      .field-value {
+        font-size: 0.8rem;
+      }
+
+      /* Stamp overlay smaller */
+      .stamp-overlay {
+        font-size: 2rem;
+        border-width: 4px;
+      }
+
+      /* Decision bar: stack controls */
+      #decision-bar {
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.5rem;
+      }
+
+      .decision-group {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .stamp-btn {
+        font-size: 0.85rem;
+        padding: 0.5rem 1rem;
+      }
+
+      .control-btn {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.75rem;
+      }
+
+      /* Feedback panel */
+      .feedback-panel {
+        width: 95%;
+        bottom: auto;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        max-height: 70vh;
+        overflow-y: auto;
+        padding: 0.75rem;
+      }
+
+      /* Modals */
+      .modal-content {
+        width: 95%;
+        padding: 1rem;
+        max-height: 85vh;
+      }
+
+      /* Rulebook tabs */
+      .tab-btn {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+      }
+
+      /* Action buttons */
+      .action-btn {
+        font-size: 0.7rem;
+        padding: 0.35rem 0.7rem;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .header-title {
+        font-size: 0.7rem;
+      }
+
+      .stamp-btn {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.75rem;
+        letter-spacing: 0.05em;
+      }
+
+      .stamp-overlay {
+        font-size: 1.5rem;
+      }
+
+      .panel-heading {
+        font-size: 0.85rem;
+      }
+    }
 </style>
 </head>
 <body>
@@ -882,6 +1045,8 @@
     <div style="display:flex;align-items:center;justify-content:center;gap:0.75rem;">
         <button id="btn-new-game" class="action-btn action-btn--danger" type="button" aria-label="Start a new game">⟳
             New Game</button>
+        <button id="btn-mobile-rulebook" class="action-btn action-btn--primary" type="button" aria-label="Open Rulebook">📖
+            Rulebook</button>
         <button id="btn-leaderboard-header" class="action-btn action-btn--primary" type="button"
             aria-label="View Leaderboard">🏆 Leaderboard</button>
     </div>
@@ -1016,6 +1181,19 @@
       <button id="btn-next-day" class="control-btn" type="button">Next Day ▶</button>
     </div>
   </div>
+
+<!-- Rulebook modal (mobile) -->
+<div id="rulebook-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rulebook-modal-title"
+    hidden>
+    <div class="modal-content paper" style="max-width:520px;">
+        <h3 id="rulebook-modal-title" class="modal-title">Rulebook</h3>
+        <div id="rulebook-modal-content">
+            <!-- Cloned rulebook content will be injected here -->
+        </div>
+        <button id="btn-close-rulebook-modal" class="control-btn modal-close" type="button"
+            aria-label="Close rulebook">Close</button>
+    </div>
+</div>
 
   <script type="module" src="src/main.js"></script>
 </body>

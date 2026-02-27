@@ -109,6 +109,7 @@ export function showLeaderboard(entries, currentPlayerName, onClose) {
 
   overlay.innerHTML = html;
   overlay.hidden = false;
+  overlay.style.zIndex = '110';
 
   const closeBtn = document.getElementById('btn-close-leaderboard');
   if (closeBtn) {
@@ -140,6 +141,7 @@ export function showLeaderboardUnavailable(onClose) {
     `<button id="btn-close-leaderboard" class="control-btn modal-close" type="button">Close</button>` +
     `</div>`;
   overlay.hidden = false;
+  overlay.style.zIndex = '110';
 
   const closeBtn = document.getElementById('btn-close-leaderboard');
   if (closeBtn) {
@@ -148,6 +150,28 @@ export function showLeaderboardUnavailable(onClose) {
       if (onClose) onClose();
     };
   }
+}
+
+/**
+ * Show a loading state in the leaderboard panel.
+ */
+export function showLeaderboardLoading() {
+  let overlay = document.getElementById('leaderboard-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'leaderboard-overlay';
+    overlay.className = 'modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    document.body.appendChild(overlay);
+  }
+
+  overlay.innerHTML = `<div class="modal-content paper" style="max-width:400px;text-align:center;">` +
+    `<h3 class="modal-title">Leaderboard</h3>` +
+    `<p style="padding:1.5rem 0;font-size:0.9rem;color:var(--text-secondary);">Loading…</p>` +
+    `</div>`;
+  overlay.hidden = false;
+  overlay.style.zIndex = '110';
 }
 
 /**

@@ -131,7 +131,7 @@ export async function fetchLeaderboard(limit = 50) {
   try {
     const { data, error } = await supabase
       .from('leaderboard')
-      .select('*')
+      .select('player_id,player_name,cumulative_score,days_completed,accuracy_pct')
       .order('cumulative_score', { ascending: false })
       .limit(limit);
     if (error) {

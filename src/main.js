@@ -11,8 +11,8 @@ import { renderRulebookPanel, initRulebookTabs } from './ui/rulebook-panel.js';
 import { initDecisionBar, setDecisionMade, resetDecisionBar, updateProgress, disableDecisionBar } from './ui/decision-bar.js';
 import { showTicketFeedback, hideFeedback, showDaySummary } from './ui/feedback-panel.js';
 import { initKeyboardHandler } from './ui/keyboard-handler.js';
-import { initSupabase, isAvailable, fetchLeaderboard, upsertLeaderboardEntry, lookupGameId } from './engine/supabase-client.js';
-import { showLeaderboard, showLeaderboardUnavailable } from './ui/leaderboard-panel.js';
+import { initSupabase, fetchLeaderboard, upsertLeaderboardEntry, lookupGameId } from './engine/supabase-client.js';
+import { showLeaderboard, showLeaderboardUnavailable, showLeaderboardLoading } from './ui/leaderboard-panel.js';
 import { showWelcomeScreen, loadPlayerProfile } from './ui/welcome-screen.js';
 import { loadScenariosForDay } from './engine/scenario-generator.js';
 
@@ -198,12 +198,14 @@ function syncLeaderboard() {
     player_id: playerProfile.player_id,
     player_name: playerProfile.player_name,
     cumulative_score: gameState.cumulativeScore + dayScore,
-    days_completed: (gameState.completedDays || []).length,
+    days_completed: Math.max(game.currentDay || 1, (gameState.completedDays || []).length),
     accuracy_pct: accuracyPct,
   };
   upsertLeaderboardEntry(entry).catch(err => {
     console.warn('Failed to sync leaderboard:', err.message);
   });
+  // Invalidate leaderboard cache so next view fetches fresh data
+  leaderboardCache = null;
 }
 
 /**
@@ -374,19 +376,72 @@ async function handleNewGame() {
   });
 }
 
+/** @type {{ entries: object[], timestamp: number }|null} Leaderboard cache */
+let leaderboardCache = null;
+const LEADERBOARD_CACHE_TTL = 15_000; // 15 seconds
+
+/**
+ * Open the rulebook in a modal (for mobile view).
+ */
+function openRulebookModal() {
+  const source = document.getElementById('rulebook-content');
+  const target = document.getElementById('rulebook-modal-content');
+  const modal = document.getElementById('rulebook-modal');
+  if (source && target && modal) {
+    target.innerHTML = source.innerHTML;
+    modal.hidden = false;
+    // Re-init tab clicks inside the modal
+    target.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        target.querySelectorAll('.tab-btn').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        target.querySelectorAll('.tab-panel').forEach(p => {
+          p.classList.remove('active');
+          p.hidden = true;
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        const panelId = btn.getAttribute('aria-controls');
+        const panel = target.querySelector(`#${panelId}`) || document.getElementById(panelId);
+        if (panel) {
+          // The cloned panels have duplicate IDs, so find by position
+          const idx = Array.from(target.querySelectorAll('.tab-btn')).indexOf(btn);
+          const panels = target.querySelectorAll('.tab-panel');
+          if (panels[idx]) {
+            panels[idx].classList.add('active');
+            panels[idx].hidden = false;
+          }
+        }
+      });
+    });
+  }
+}
+
 /**
  * Open the leaderboard view (mid-game or from welcome screen).
  */
 async function openLeaderboard() {
-  const available = await isAvailable();
-  if (!available) {
-    showLeaderboardUnavailable(() => {});
+  const currentName = playerProfile ? playerProfile.player_name : null;
+
+  // Use cache if fresh enough
+  const now = Date.now();
+  if (leaderboardCache && (now - leaderboardCache.timestamp) < LEADERBOARD_CACHE_TTL) {
+    showLeaderboard(leaderboardCache.entries, currentName, () => {});
     return;
   }
 
-  const entries = await fetchLeaderboard(50);
-  const currentName = playerProfile ? playerProfile.player_name : null;
-  showLeaderboard(entries, currentName, () => {});
+  // Show loading state immediately
+  showLeaderboardLoading();
+
+  try {
+    const entries = await fetchLeaderboard(50);
+    leaderboardCache = { entries, timestamp: Date.now() };
+    showLeaderboard(entries, currentName, () => {});
+  } catch {
+    showLeaderboardUnavailable(() => {});
+  }
 }
 
 /**
@@ -418,7 +473,7 @@ async function beginGame(playerName, playerId, isNewGame) {
       player_id: playerId,
       player_name: playerName,
       cumulative_score: 0,
-      days_completed: 0,
+      days_completed: 1,
       accuracy_pct: 0,
     }).catch(err => {
       console.warn('Failed to create initial leaderboard entry:', err.message);
@@ -454,6 +509,16 @@ async function init() {
   // Wire up header leaderboard button
   const lbBtn = document.getElementById('btn-leaderboard-header');
   if (lbBtn) lbBtn.addEventListener('click', openLeaderboard);
+
+  // Wire up mobile rulebook button
+  const rulebookBtn = document.getElementById('btn-mobile-rulebook');
+  if (rulebookBtn) rulebookBtn.addEventListener('click', openRulebookModal);
+
+  const closeRulebookBtn = document.getElementById('btn-close-rulebook-modal');
+  if (closeRulebookBtn) closeRulebookBtn.addEventListener('click', () => {
+    const modal = document.getElementById('rulebook-modal');
+    if (modal) modal.hidden = true;
+  });
 
   // Wire up copy game ID button
   const copyBtn = document.getElementById('btn-copy-game-id');
