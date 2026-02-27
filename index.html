@@ -90,6 +90,17 @@
       opacity: 0.9;
     }
 
+    .header-game-id {
+      font-size: 0.65rem;
+      letter-spacing: 0.03em;
+      opacity: 0.6;
+      font-style: italic;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .new-game-btn {
       font-family: inherit;
       font-size: 0.8rem;
@@ -753,6 +764,101 @@
       white-space: nowrap;
       border: 0;
     }
+
+    /* --- Leaderboard Button (header) --- */
+    .leaderboard-btn {
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.45rem 0.9rem;
+      background: var(--paper-bg);
+      color: var(--accent-blue);
+      border: 2px solid var(--accent-blue);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .leaderboard-btn:hover {
+      background: var(--accent-blue);
+      color: #fff;
+    }
+
+    .leaderboard-btn:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* --- Leaderboard Table --- */
+    .leaderboard-row td {
+      padding: 0.3rem 0.5rem;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .leaderboard-row.current-player {
+      background: var(--warning-bg);
+      font-weight: bold;
+    }
+
+    .lb-rank { text-align: left; }
+    .lb-name { text-align: left; }
+    .lb-score { text-align: right; }
+    .lb-days { text-align: right; }
+    .lb-accuracy { text-align: right; }
+
+    /* --- Action Bar (New Game + Leaderboard) --- */
+    #action-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      padding: 0.5rem 1rem;
+      background: var(--desk-mid);
+      border-bottom: 2px solid #2e1f1a;
+    }
+
+    .action-btn {
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.45rem 0.9rem;
+      border: 2px solid;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .action-btn:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .action-btn--danger {
+      background: var(--paper-bg);
+      color: var(--stamp-deny);
+      border-color: var(--stamp-deny);
+    }
+
+    .action-btn--danger:hover {
+      background: var(--stamp-deny);
+      color: #fff;
+    }
+
+    .action-btn--primary {
+      background: var(--paper-bg);
+      color: var(--accent-blue);
+      border-color: var(--accent-blue);
+    }
+
+    .action-btn--primary:hover {
+      background: var(--accent-blue);
+      color: #fff;
+    }
 </style>
 </head>
 <body>
@@ -760,7 +866,26 @@
     <span class="header-day" id="header-day">Day 1</span>
     <span class="header-title">IAM Please — Access Review Bureau</span>
     <span class="header-score" id="header-score">Score: 0</span>
+    <span class="header-game-id" id="header-game-id" title="Game ID"></span>
   </header>
+
+<!-- Action bar: Game ID + New Game + Leaderboard -->
+<div id="action-bar" aria-label="Game Actions">
+    <div id="action-game-id"
+        style="display:flex;align-items:center;justify-content:center;gap:0.4rem;margin-bottom:0.4rem;font-size:0.75rem;color:var(--paper-bg);opacity:0.85;letter-spacing:0.05em;">
+        <span id="action-game-id-label">Game ID:</span>
+        <span id="action-game-id-value" style="font-weight:bold;letter-spacing:0.08em;font-size:0.8rem;"></span>
+        <button id="btn-copy-game-id" type="button" title="Copy full Game ID"
+            style="font-family:inherit;font-size:0.7rem;padding:0.15rem 0.4rem;background:rgba(255,255,255,0.15);color:var(--paper-bg);border:1px solid rgba(255,255,255,0.3);border-radius:2px;cursor:pointer;">📋
+            Copy</button>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:0.75rem;">
+        <button id="btn-new-game" class="action-btn action-btn--danger" type="button" aria-label="Start a new game">⟳
+            New Game</button>
+        <button id="btn-leaderboard-header" class="action-btn action-btn--primary" type="button"
+            aria-label="View Leaderboard">🏆 Leaderboard</button>
+    </div>
+</div>
 
   <main id="game-area">
     <!-- Left panel: request document -->
@@ -868,7 +993,6 @@
     <div class="ticket-progress" id="ticket-progress" aria-label="Ticket progress">
       <span id="progress-text">Ticket 0 / 0</span>
     </div>
-    <button id="btn-new-game" class="new-game-btn" type="button" aria-label="Start a new game">⟳ New Game</button>
   </footer>
 
   <!-- Rationale picker modal -->

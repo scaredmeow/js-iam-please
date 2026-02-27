@@ -1,6 +1,7 @@
 /**
  * IAM Please — main entry point.
  * Wires engine modules to UI components at startup.
+ * Integrates Supabase, welcome screen, leaderboard, and Supabase-first scenario loading.
  */
 
 import { GameController } from './engine/game-controller.js';
@@ -10,6 +11,10 @@ import { renderRulebookPanel, initRulebookTabs } from './ui/rulebook-panel.js';
 import { initDecisionBar, setDecisionMade, resetDecisionBar, updateProgress, disableDecisionBar } from './ui/decision-bar.js';
 import { showTicketFeedback, hideFeedback, showDaySummary } from './ui/feedback-panel.js';
 import { initKeyboardHandler } from './ui/keyboard-handler.js';
+import { initSupabase, isAvailable, fetchLeaderboard, upsertLeaderboardEntry, lookupGameId } from './engine/supabase-client.js';
+import { showLeaderboard, showLeaderboardUnavailable } from './ui/leaderboard-panel.js';
+import { showWelcomeScreen, loadPlayerProfile } from './ui/welcome-screen.js';
+import { loadScenariosForDay } from './engine/scenario-generator.js';
 
 /** @type {GameController|null} */
 let game = null;
@@ -29,6 +34,12 @@ let allScenarios = [];
 /** @type {object[]} */
 let currentDayTickets = [];
 
+/** @type {{ player_id: string, player_name: string }|null} */
+let playerProfile = null;
+
+/** @type {object[]} All score events across all completed days (for leaderboard computation) */
+let allScoreEvents = [];
+
 /**
  * Fetch a JSON file and return parsed content.
  * @param {string} url
@@ -41,22 +52,34 @@ async function fetchJSON(url) {
 }
 
 /**
- * Load all data files: scenarios, role matrix, ABAC rules, guardrails.
+ * Load static data files: role matrix, ABAC rules, guardrails.
+ * Scenarios are loaded per-day via Supabase-first loader.
  */
-async function loadData() {
-  const [roles, abac, guardrailsData, day1, day2, day3] = await Promise.all([
+async function loadStaticData() {
+  const [roles, abac, guardrailsData] = await Promise.all([
     fetchJSON('src/data/roles.json'),
     fetchJSON('src/data/abac-rules.json'),
     fetchJSON('src/data/guardrails.json'),
-    fetchJSON('src/data/scenarios/day1.json'),
-    fetchJSON('src/data/scenarios/day2.json'),
-    fetchJSON('src/data/scenarios/day3.json'),
   ]);
 
   roleMatrix = roles;
   abacOverlay = abac;
   guardrails = guardrailsData.guardrails || [];
-  allScenarios = [...day1, ...day2, ...day3];
+}
+
+/**
+ * Load scenarios for a specific day using Supabase-first loader,
+ * then merge them into allScenarios (replacing any existing for that day).
+ * @param {number} day
+ * @returns {Promise<object[]>}
+ */
+async function loadDayScenarios(day) {
+  const scenarios = await loadScenariosForDay(day);
+  // Remove any existing scenarios for this day from allScenarios
+  allScenarios = allScenarios.filter(s => s.day !== day);
+  // Add the newly loaded ones
+  allScenarios.push(...scenarios);
+  return scenarios;
 }
 
 /**
@@ -87,57 +110,34 @@ function updateRulebook() {
 }
 
 /**
- * Update the header display with current day and score.
- * Shows cumulative score plus any in-progress day score.
+ * Update the header display with current day, score, and game ID.
  */
 function updateHeader() {
   const dayEl = document.getElementById('header-day');
   const scoreEl = document.getElementById('header-score');
+  const gameIdEl = document.getElementById('header-game-id');
+  const actionGameIdEl = document.getElementById('action-game-id-value');
   if (dayEl) dayEl.textContent = `Day ${game.currentDay}`;
   if (scoreEl) {
     const dayScore = game._dayScoreEvents.reduce((sum, e) => sum + e.scoreDelta, 0);
     const totalDisplay = game.cumulativeScore + dayScore;
     scoreEl.textContent = `Score: ${totalDisplay}`;
   }
-}
-
-/**
- * Handle a player decision (stamp + rationale).
- * @param {string} decision - 'APPROVE' or 'DENY'
- * @param {string} reasonCode - The selected rationale code
- */
-function handleDecision(decision, reasonCode) {
-  if (!game) return;
-  const ticket = game.getCurrentTicket();
-  if (!ticket) return;
-
-  // Check for missing-field warning before recording (Requirement 4.5)
-  const warningText = checkMissingFieldWarning(ticket, decision);
-  if (warningText && !confirmApproval(warningText)) {
-    return; // Player cancelled after seeing warning
+  if (playerProfile) {
+    const shortId = playerProfile.player_id.substring(0, 8).toUpperCase();
+    if (gameIdEl) {
+      gameIdEl.textContent = `Game: ${shortId}`;
+      gameIdEl.title = `Game ID: ${playerProfile.player_id}`;
+    }
+    if (actionGameIdEl) {
+      actionGameIdEl.textContent = shortId;
+      actionGameIdEl.title = playerProfile.player_id;
+    }
   }
-
-  const { scoreEvent, warning } = game.submitDecision(decision, reasonCode);
-
-  // Show stamp overlay on the request document
-  showStampOverlay(decision);
-
-  // Disable stamps, enable next
-  setDecisionMade();
-
-  // Show micro-feedback (Requirement 6.1)
-  showTicketFeedback(scoreEvent, ticket, warning);
-
-  // Update header to reflect new score
-  updateHeader();
-
-  // Persist state after each decision (Requirement 5.5, 10.1)
-  saveGameState();
 }
 
 /**
  * Check if approving a request with missing fields should trigger a warning.
- * Returns warning text or null.
  * @param {object} ticket
  * @param {string} decision
  * @returns {string|null}
@@ -171,10 +171,66 @@ function checkMissingFieldWarning(ticket, decision) {
 /**
  * Show a confirmation dialog for missing-field warnings.
  * @param {string} warningText
- * @returns {boolean} true if player confirms approval
+ * @returns {boolean}
  */
 function confirmApproval(warningText) {
   return window.confirm(`⚠ ${warningText}\n\nDo you still want to APPROVE?`);
+}
+
+/**
+ * Compute and upsert the current leaderboard entry to Supabase.
+ * Called after every decision and at day completion.
+ */
+function syncLeaderboard() {
+  if (!playerProfile) return;
+  const gameState = game.getGameState();
+  // Include current in-progress day score events in the total
+  const currentDayEvents = game._dayScoreEvents || [];
+  const allEvents = [...allScoreEvents, ...currentDayEvents];
+  const totalDecisions = allEvents.length;
+  const correctDecisions = allEvents.filter(e => e.isCorrect).length;
+  const accuracyPct = totalDecisions > 0
+    ? Math.round((correctDecisions / totalDecisions) * 1000) / 10
+    : 0;
+  const dayScore = currentDayEvents.reduce((sum, e) => sum + e.scoreDelta, 0);
+
+  const entry = {
+    player_id: playerProfile.player_id,
+    player_name: playerProfile.player_name,
+    cumulative_score: gameState.cumulativeScore + dayScore,
+    days_completed: (gameState.completedDays || []).length,
+    accuracy_pct: accuracyPct,
+  };
+  upsertLeaderboardEntry(entry).catch(err => {
+    console.warn('Failed to sync leaderboard:', err.message);
+  });
+}
+
+/**
+ * Handle a player decision (stamp + rationale).
+ * @param {string} decision - 'APPROVE' or 'DENY'
+ * @param {string} reasonCode - The selected rationale code
+ */
+function handleDecision(decision, reasonCode) {
+  if (!game) return;
+  const ticket = game.getCurrentTicket();
+  if (!ticket) return;
+
+  const warningText = checkMissingFieldWarning(ticket, decision);
+  if (warningText && !confirmApproval(warningText)) {
+    return;
+  }
+
+  const { scoreEvent, warning } = game.submitDecision(decision, reasonCode);
+
+  showStampOverlay(decision);
+  setDecisionMade();
+  showTicketFeedback(scoreEvent, ticket, warning);
+  updateHeader();
+  saveGameState();
+
+  // Update leaderboard after every decision
+  syncLeaderboard();
 }
 
 /**
@@ -190,20 +246,21 @@ function handleNextTicket() {
 }
 
 /**
- * Handle day completion — show summary, persist state.
+ * Handle day completion — show summary, persist state, upsert leaderboard.
  */
-function handleDayComplete() {
+async function handleDayComplete() {
   const summary = game.completeDay();
   disableDecisionBar();
   hideFeedback();
-
-  // Update header with new cumulative score
   updateHeader();
-
-  // Persist completed day (Requirement 10.1)
   saveGameState();
 
-  // Show end-of-day summary (Requirement 6.3)
+  // Accumulate score events for leaderboard computation
+  allScoreEvents.push(...summary.scoreEvents);
+
+  // Sync leaderboard with final day scores
+  syncLeaderboard();
+
   showDaySummary(summary, currentDayTickets, {
     onNextDay: () => startNextDay(),
   });
@@ -212,23 +269,27 @@ function handleDayComplete() {
 /**
  * Start the next day.
  */
-function startNextDay() {
+async function startNextDay() {
   const nextDay = game.currentDay + 1;
-  const hasScenarios = allScenarios.some(s => s.day === nextDay);
+  await startDay(nextDay);
+}
 
-  if (!hasScenarios) {
+/**
+ * Start a specific day. Loads scenarios via Supabase-first loader.
+ * @param {number} dayNumber
+ */
+async function startDay(dayNumber) {
+  // Load scenarios for this day (Supabase first, fallback to local JSON)
+  const dayScenarios = await loadDayScenarios(dayNumber);
+
+  if (dayScenarios.length === 0) {
     showNoDaysMessage();
     return;
   }
 
-  startDay(nextDay);
-}
+  // Sync the game controller's scenario pool with the latest loaded scenarios
+  game._allScenarios = allScenarios;
 
-/**
- * Start a specific day.
- * @param {number} dayNumber
- */
-function startDay(dayNumber) {
   game.startDay(dayNumber);
   currentDayTickets = allScenarios.filter(s => s.day === dayNumber);
   updateHeader();
@@ -265,16 +326,13 @@ function saveGameState() {
  * @returns {number}
  */
 function getStartingDay(savedState) {
-  // If there's a current day with remaining tickets, resume it
   if (savedState.currentDay > 0) {
-    const hasTickets = allScenarios.some(s => s.day === savedState.currentDay);
-    if (hasTickets) return savedState.currentDay;
+    return savedState.currentDay;
   }
 
-  // Otherwise find the first incomplete day
   const completedSet = new Set(savedState.completedDays || []);
   for (let d = 1; d <= 20; d++) {
-    if (!completedSet.has(d) && allScenarios.some(s => s.day === d)) {
+    if (!completedSet.has(d)) {
       return d;
     }
   }
@@ -283,23 +341,106 @@ function getStartingDay(savedState) {
 }
 
 /**
- * Reset the game to day 1 with a fresh state.
+ * Go back to the welcome screen for a new game.
  */
-function handleNewGame() {
+async function handleNewGame() {
   if (!game) return;
-  if (!window.confirm('Start a new game? All progress will be lost.')) return;
 
-  saveToLocalStorage(getInitialState());
-  game.loadGameState(getInitialState());
-  startDay(1);
+  // Hide game UI
+  const gameArea = document.getElementById('game-area');
+  const decisionBar = document.getElementById('decision-bar');
+  const header = document.querySelector('header');
+  const actionBar = document.getElementById('action-bar');
+  if (gameArea) gameArea.style.display = 'none';
+  if (decisionBar) decisionBar.style.display = 'none';
+  if (header) header.style.display = 'none';
+  if (actionBar) actionBar.style.display = 'none';
+
   hideFeedback();
+
+  // Show welcome screen again
+  const existingProfile = loadPlayerProfile();
+  const savedState = loadFromLocalStorage();
+  const hasSavedGame = savedState.currentDay > 0 || savedState.completedDays.length > 0;
+
+  showWelcomeScreen({
+    savedName: null,
+    hasSavedGame: hasSavedGame && existingProfile != null,
+    savedGameId: null,
+    onStartGame: (name, id) => beginGame(name, id, true),
+    onContinueGame: (name, id) => beginGame(name, id, false),
+    onViewLeaderboard: openLeaderboard,
+    onLookupGameId: lookupGameId,
+  });
+}
+
+/**
+ * Open the leaderboard view (mid-game or from welcome screen).
+ */
+async function openLeaderboard() {
+  const available = await isAvailable();
+  if (!available) {
+    showLeaderboardUnavailable(() => {});
+    return;
+  }
+
+  const entries = await fetchLeaderboard(50);
+  const currentName = playerProfile ? playerProfile.player_name : null;
+  showLeaderboard(entries, currentName, () => {});
+}
+
+/**
+ * Start the game after the welcome screen.
+ * @param {string} playerName
+ * @param {string} playerId
+ * @param {boolean} isNewGame - true for "Start Game" / "New Game", false for "Continue Game"
+ */
+async function beginGame(playerName, playerId, isNewGame) {
+  playerProfile = { player_id: playerId, player_name: playerName };
+
+  // Show the game UI
+  const gameArea = document.getElementById('game-area');
+  const decisionBar = document.getElementById('decision-bar');
+  const header = document.querySelector('header');
+  const actionBar = document.getElementById('action-bar');
+  if (gameArea) gameArea.style.display = '';
+  if (decisionBar) decisionBar.style.display = '';
+  if (header) header.style.display = '';
+  if (actionBar) actionBar.style.display = '';
+
+  if (isNewGame) {
+    saveToLocalStorage(getInitialState());
+    game.loadGameState(getInitialState());
+    allScoreEvents = [];
+
+    // Create leaderboard entry immediately with score 0
+    upsertLeaderboardEntry({
+      player_id: playerId,
+      player_name: playerName,
+      cumulative_score: 0,
+      days_completed: 0,
+      accuracy_pct: 0,
+    }).catch(err => {
+      console.warn('Failed to create initial leaderboard entry:', err.message);
+    });
+
+    await startDay(1);
+  } else {
+    // Continue from saved state
+    const savedState = loadFromLocalStorage();
+    if (savedState.currentDay > 0 || savedState.completedDays.length > 0) {
+      game.loadGameState(savedState);
+    }
+    const startingDay = getStartingDay(savedState);
+    await startDay(startingDay);
+  }
 }
 
 /**
  * Main initialization.
  */
 async function init() {
-  // Always initialize UI components first so buttons are wired up
+  // Initialize UI components
   initRulebookTabs();
   initDecisionBar({
     onDecision: handleDecision,
@@ -310,13 +451,51 @@ async function init() {
   const newGameBtn = document.getElementById('btn-new-game');
   if (newGameBtn) newGameBtn.addEventListener('click', handleNewGame);
 
-  // Disable decision bar until data is loaded
+  // Wire up header leaderboard button
+  const lbBtn = document.getElementById('btn-leaderboard-header');
+  if (lbBtn) lbBtn.addEventListener('click', openLeaderboard);
+
+  // Wire up copy game ID button
+  const copyBtn = document.getElementById('btn-copy-game-id');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      if (!playerProfile) return;
+      navigator.clipboard.writeText(playerProfile.player_id).then(() => {
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 1500);
+      }).catch(() => {
+        copyBtn.textContent = '⚠ Failed';
+        setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 1500);
+      });
+    });
+  }
+
   disableDecisionBar();
 
+  // Hide game UI until welcome screen completes
+  const gameArea = document.getElementById('game-area');
+  const decisionBar = document.getElementById('decision-bar');
+  const header = document.querySelector('header');
+  const actionBar = document.getElementById('action-bar');
+  if (gameArea) gameArea.style.display = 'none';
+  if (decisionBar) decisionBar.style.display = 'none';
+  if (header) header.style.display = 'none';
+  if (actionBar) actionBar.style.display = 'none';
+
+  // Initialize Supabase (non-blocking — game works without it)
   try {
-    await loadData();
+    await initSupabase();
+  } catch (err) {
+    console.warn('Supabase init failed, continuing offline:', err.message);
+  }
+
+  try {
+    await loadStaticData();
   } catch (err) {
     console.error('Failed to load game data:', err);
+    // Show game area to display error
+    if (gameArea) gameArea.style.display = '';
+    if (header) header.style.display = '';
     const reqPanel = document.getElementById('request-panel');
     if (reqPanel) {
       reqPanel.innerHTML = `
@@ -333,21 +512,25 @@ async function init() {
     return;
   }
 
-  // Create game controller
+  // Create game controller (scenarios loaded per-day now, start with empty)
   game = new GameController(allScenarios, roleMatrix, abacOverlay, guardrails);
-  console.log(`IAM Please loaded: ${allScenarios.length} scenarios across days`);
+  console.log('IAM Please loaded — showing welcome screen');
 
-  // Load saved state from localStorage (Requirement 10.2)
+  // Check for existing player profile and saved game
+  const existingProfile = loadPlayerProfile();
   const savedState = loadFromLocalStorage();
+  const hasSavedGame = savedState.currentDay > 0 || savedState.completedDays.length > 0;
 
-  // Restore state if there's a saved game
-  if (savedState.currentDay > 0 || savedState.completedDays.length > 0) {
-    game.loadGameState(savedState);
-  }
-
-  // Determine which day to start/resume
-  const startingDay = getStartingDay(savedState);
-  startDay(startingDay);
+  // Show welcome screen (Requirement 4.1, 4.2, 4.3)
+  showWelcomeScreen({
+    savedName: null,
+    hasSavedGame: hasSavedGame && existingProfile != null,
+    savedGameId: null,
+    onStartGame: (name, id) => beginGame(name, id, true),
+    onContinueGame: (name, id) => beginGame(name, id, false),
+    onViewLeaderboard: openLeaderboard,
+    onLookupGameId: lookupGameId,
+  });
 }
 
 if (document.readyState === 'loading') {
