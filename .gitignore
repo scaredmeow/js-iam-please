@@ -17,11 +17,3 @@ Thumbs.db
 
 # Personal / research files
 deep-research-report*.md
-
-
-supabase/*
-supabase/
-
-
-scripts/
-scripts/*
